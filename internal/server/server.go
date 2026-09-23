@@ -11,7 +11,7 @@ import (
 
 const (
 	name    = "justrouting"
-	version = "0.1.0"
+	version = "0.2.0"
 )
 
 type Config struct {
@@ -46,7 +46,9 @@ between two locations. The default routing profile is driving; when the
 user's request mentions a motorcycle or motorbike, pass "motorcycle" as
 the route tool's profile input.
 
-Coordinates must be provided as longitude,latitude.
+The route tool takes coordinates as longitude,latitude. When the user
+asks about places by name or address, call the geocode tool first to
+look up each place, then pass the returned coordinates to the route tool.
 			`,
 			Logger: cfg.Logger,
 		},
@@ -55,6 +57,13 @@ Coordinates must be provided as longitude,latitude.
 	tools.RegisterRouteTool(
 		mcpServer,
 		tools.RouteConfig{
+			APIKey: cfg.APIKey,
+		},
+	)
+
+	tools.RegisterGeocodeTool(
+		mcpServer,
+		tools.GeocodeConfig{
 			APIKey: cfg.APIKey,
 		},
 	)

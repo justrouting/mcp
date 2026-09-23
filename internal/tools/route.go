@@ -43,6 +43,10 @@ Returns the distance in meters and estimated travel duration in seconds.
 Coordinates must use longitude,latitude format.
 For example: 103.8198,1.3521
 
+If the user gives place names or addresses instead of coordinates, do not
+guess coordinates. Call the geocode tool first to look up each place, then
+pass the returned "coordinates" values to this tool.
+
 Optional "profile" input selects the routing profile:
 - If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
 - Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile or set it to "car" to get the default driving route.
