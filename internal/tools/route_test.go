@@ -41,4 +41,49 @@ func TestParsePointInvalid(t *testing.T) {
 	}
 }
 
+func TestNormalizeProfile(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", "driving"},
+		{"car", "driving"},
+		{"driving", "driving"},
+		{"CAR", "driving"},
+		{"motorcycle", "motorcycle"},
+		{"motorbike", "motorcycle"},
+		{" Motorcycle ", "motorcycle"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := normalizeProfile(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if got != tt.want {
+				t.Fatalf("unexpected profile: got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeProfileInvalid(t *testing.T) {
+	tests := []string{
+		"bicycle",
+		"walking",
+		"taxi",
+		"flying",
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			if _, err := normalizeProfile(input); err == nil {
+				t.Fatalf("expected error for %q", input)
+			}
+		})
+	}
+}
+
 var _ justrouting.Point

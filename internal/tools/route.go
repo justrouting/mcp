@@ -17,6 +17,7 @@ type RouteConfig struct {
 type RouteInput struct {
 	Origin      string `json:"origin" jsonschema:"origin coordinates in longitude,latitude format"`
 	Destination string `json:"destination" jsonschema:"destination coordinates in longitude,latitude format"`
+	Profile     string `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it or set it to \"car\" for the default driving profile"`
 }
 
 type RouteOutput struct {
@@ -35,13 +36,16 @@ func RegisterRouteTool(
 		&mcp.Tool{
 			Name: "route",
 			Description: `
-Calculate a driving route between two locations using JustRouting.
+Calculate a route between two locations using JustRouting.
 
-Returns the driving distance in meters and estimated travel duration
-in seconds.
+Returns the distance in meters and estimated travel duration in seconds.
 
 Coordinates must use longitude,latitude format.
 For example: 103.8198,1.3521
+
+Optional "profile" input selects the routing profile:
+- If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
+- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile or set it to "car" to get the default driving route.
 			`,
 		},
 		func(
@@ -49,12 +53,12 @@ For example: 103.8198,1.3521
 			req *mcp.CallToolRequest,
 			input RouteInput,
 		) (*mcp.CallToolResult, RouteOutput, error) {
-			return calculateRoute(ctx, client, input)
+			return getRoute(ctx, client, input)
 		},
 	)
 }
 
-func calculateRoute(
+func getRoute(
 	ctx context.Context,
 	client *justrouting.Client,
 	input RouteInput,
@@ -69,11 +73,17 @@ func calculateRoute(
 		return nil, RouteOutput{}, fmt.Errorf("invalid destination: %w", err)
 	}
 
+	profile, err := normalizeProfile(input.Profile)
+	if err != nil {
+		return nil, RouteOutput{}, fmt.Errorf("invalid profile: %w", err)
+	}
+
 	route, err := client.Routes.Get(
 		ctx,
 		&justrouting.RouteRequest{
 			Origin:      origin,
 			Destination: destination,
+			Profile:     profile,
 		},
 	)
 	if err != nil {
@@ -113,4 +123,23 @@ func parsePoint(value string) (justrouting.Point, error) {
 	}
 
 	return point, nil
+}
+
+// normalizeProfile maps user-facing profile names to JustRouting API
+// profiles. An empty profile (field omitted) and car synonyms map to
+// "driving", the API default. Motorcycle synonyms map to "motorcycle".
+// Any other value is rejected so unsupported profiles fail fast with a
+// clear error instead of silently returning a driving route.
+func normalizeProfile(profile string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(profile)) {
+	case "", "car", "driving":
+		return "driving", nil
+	case "motorcycle", "motorbike":
+		return "motorcycle", nil
+	default:
+		return "", fmt.Errorf(
+			"unsupported profile %q: must be one of \"car\", \"driving\", \"motorcycle\", \"motorbike\"",
+			profile,
+		)
+	}
 }

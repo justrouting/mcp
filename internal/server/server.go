@@ -39,10 +39,12 @@ func New(cfg Config) (*Server, error) {
 		},
 		&mcp.ServerOptions{
 			Instructions: `
-JustRouting provides driving route calculations across Southeast Asia.
+JustRouting provides route calculations across Southeast Asia.
 
-Use the route tool to calculate driving distance and estimated travel
-duration between two locations.
+Use the route tool to calculate distance and estimated travel duration
+between two locations. The default routing profile is driving; when the
+user's request mentions a motorcycle or motorbike, pass "motorcycle" as
+the route tool's profile input.
 
 Coordinates must be provided as longitude,latitude.
 			`,

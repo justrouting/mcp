@@ -7,6 +7,7 @@ Use JustRouting's road-routing capabilities from MCP-compatible AI assistants su
 ## Features
 
 * Driving route calculation
+* Motorcycle routing profile
 * Driving distance
 * Estimated travel duration
 * Southeast Asia-focused road coverage
@@ -38,16 +39,19 @@ export JUSTROUTING_API_KEY="YOUR-API-KEY"
 
 ### `route`
 
-Calculate a driving route between two locations.
+Calculate a route between two locations, using the driving profile by default or the motorcycle profile when requested.
 
 Input:
 
 ```json
 {
   "origin": "103.8198,1.3521",
-  "destination": "103.9915,1.3644"
+  "destination": "103.9915,1.3644",
+  "profile": "motorcycle"
 }
 ```
+
+`profile` is optional. Set it to `"motorcycle"` for a motorcycle route; omit it (or use `"car"`) for the default driving route. When the user mentions a motorcycle or motorbike, the assistant sets `profile` to `"motorcycle"`.
 
 Coordinates must use:
 
