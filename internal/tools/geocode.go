@@ -18,9 +18,14 @@ type GeocodeConfig struct {
 }
 
 type GeocodeInput struct {
-	Text    string   `json:"text" jsonschema:"address or place name to search, for example \"marina bay singapore\""`
-	Limit   int      `json:"limit,omitempty" jsonschema:"maximum number of results to return; defaults to 1 (best match only), must not exceed 10"`
-	Filters []string `json:"filters,omitempty" jsonschema:"optional filters to restrict results, for example \"countrycode:sg\""`
+	Name        string   `json:"name,omitempty" jsonschema:"name of the place, for example \"Marina Bay Sands\" or \"marina bay\""`
+	Country     string   `json:"country,omitempty" jsonschema:"country, for example \"Singapore\""`
+	City        string   `json:"city,omitempty" jsonschema:"city or locality, for example \"Singapore\""`
+	Street      string   `json:"street,omitempty" jsonschema:"street name, for example \"Bayfront Avenue\""`
+	Housenumber string   `json:"housenumber,omitempty" jsonschema:"house or building number, for example \"10\""`
+	Postcode    string   `json:"postcode,omitempty" jsonschema:"postal code, for example \"018956\""`
+	Limit       int      `json:"limit,omitempty" jsonschema:"maximum number of results to return; defaults to 1 (best match only), must not exceed 10"`
+	Filters     []string `json:"filters,omitempty" jsonschema:"optional filters to restrict results, for example \"countrycode:sg\""`
 }
 
 type GeocodeResultOutput struct {
@@ -48,7 +53,18 @@ func RegisterGeocodeTool(
 		&mcp.Tool{
 			Name: "geocode",
 			Description: `
-Search for places and convert an address or place name into coordinates using JustRouting.
+Search for places and convert a place name or address into coordinates using JustRouting.
+
+The search is structured: parse the user's place reference into address
+components and pass only the ones you can determine — name, housenumber,
+street, postcode, city, country. Omit any component the user did not give.
+For example, "Marina Bay Sands, 10 Bayfront Avenue, Singapore 018956"
+becomes name "Marina Bay Sands", housenumber "10", street "Bayfront
+Avenue", postcode "018956", city "Singapore", country "Singapore".
+
+Prefer passing country (and city) whenever the user's context implies them —
+they are the strongest disambiguators for common, abbreviated, or misspelled
+names.
 
 Returns a list of matching places, ordered by relevance. Each result includes
 longitude, latitude, and a ready-to-use "coordinates" string in longitude,latitude
@@ -75,9 +91,21 @@ func searchGeocode(
 	client *justrouting.Client,
 	input GeocodeInput,
 ) (*mcp.CallToolResult, GeocodeOutput, error) {
-	text := strings.TrimSpace(input.Text)
-	if text == "" {
-		return nil, GeocodeOutput{}, fmt.Errorf("text is required")
+	// Components the LLM could not determine stay empty, and the go-client
+	// drops empty fields from the query, so the API only sees what was
+	// actually provided.
+	structured := &justrouting.StructuredQuery{
+		Name:        strings.TrimSpace(input.Name),
+		Housenumber: strings.TrimSpace(input.Housenumber),
+		Street:      strings.TrimSpace(input.Street),
+		Postcode:    strings.TrimSpace(input.Postcode),
+		City:        strings.TrimSpace(input.City),
+		Country:     strings.TrimSpace(input.Country),
+	}
+	if describeStructured(structured) == "" {
+		return nil, GeocodeOutput{}, fmt.Errorf(
+			"at least one of name, housenumber, street, postcode, city, country is required",
+		)
 	}
 
 	// Validate the limit here so the LLM gets a clear message instead of
@@ -106,9 +134,9 @@ func searchGeocode(
 	resp, err := client.Geocode.Search(
 		ctx,
 		&justrouting.GeocodeRequest{
-			Text:    text,
-			Limit:   limit,
-			Filters: input.Filters,
+			Structured: structured,
+			Limit:      limit,
+			Filters:    input.Filters,
 		},
 	)
 	if err != nil {
@@ -119,7 +147,10 @@ func searchGeocode(
 	// as an error so it retries with a different query instead of passing
 	// nothing to the route tool.
 	if len(resp.Results) == 0 {
-		return nil, GeocodeOutput{}, fmt.Errorf("no results found for %q", text)
+		return nil, GeocodeOutput{}, fmt.Errorf(
+			"no results found for %s",
+			describeStructured(structured),
+		)
 	}
 
 	results := make([]GeocodeResultOutput, 0, len(resp.Results))
@@ -136,4 +167,23 @@ func searchGeocode(
 	}
 
 	return nil, GeocodeOutput{Results: results}, nil
+}
+
+// describeStructured renders the non-empty components of a structured query
+// as key=value pairs, used in error messages so the LLM sees which
+// components were searched.
+func describeStructured(s *justrouting.StructuredQuery) string {
+	parts := make([]string, 0, 6)
+	add := func(key, v string) {
+		if v != "" {
+			parts = append(parts, fmt.Sprintf("%s=%q", key, v))
+		}
+	}
+	add("name", s.Name)
+	add("housenumber", s.Housenumber)
+	add("street", s.Street)
+	add("postcode", s.Postcode)
+	add("city", s.City)
+	add("country", s.Country)
+	return strings.Join(parts, ", ")
 }

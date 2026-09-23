@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func TestSearchGeocodeDecodesResults(t *testing.T) {
 	_, output, err := searchGeocode(
 		context.Background(),
 		client,
-		GeocodeInput{Text: "marina bay singapore"},
+		GeocodeInput{Name: "marina bay sands", City: "singapore"},
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -99,13 +100,16 @@ func TestSearchGeocodeEmptyResults(t *testing.T) {
 	_, _, err := searchGeocode(
 		context.Background(),
 		client,
-		GeocodeInput{Text: "nowhere at all"},
+		GeocodeInput{Name: "nowhere at all"},
 	)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "no results found") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(err.Error(), `name="nowhere at all"`) {
+		t.Fatalf("error should echo the searched components: %v", err)
 	}
 }
 
@@ -114,10 +118,13 @@ func TestSearchGeocodeInputValidation(t *testing.T) {
 		name  string
 		input GeocodeInput
 	}{
-		{"empty text", GeocodeInput{Text: ""}},
-		{"whitespace text", GeocodeInput{Text: "   "}},
-		{"negative limit", GeocodeInput{Text: "x", Limit: -1}},
-		{"limit too large", GeocodeInput{Text: "x", Limit: maxGeocodeResults + 1}},
+		{"all fields empty", GeocodeInput{}},
+		{
+			"whitespace only fields",
+			GeocodeInput{Name: "  ", City: "\t", Country: " "},
+		},
+		{"negative limit", GeocodeInput{Name: "x", Limit: -1}},
+		{"limit too large", GeocodeInput{Name: "x", Limit: maxGeocodeResults + 1}},
 	}
 
 	for _, tt := range tests {
@@ -137,37 +144,53 @@ func TestSearchGeocodeInputValidation(t *testing.T) {
 	}
 }
 
-func TestSearchGeocodeLimitForwarding(t *testing.T) {
+func TestSearchGeocodeQueryEncoding(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     GeocodeInput
-		wantPath  string
-		wantText  string
-		wantLimit string
+		name       string
+		input      GeocodeInput
+		wantSet    map[string]string
+		wantAbsent []string
 	}{
 		{
-			name:      "omitted limit defaults to 1",
-			input:     GeocodeInput{Text: "marina bay"},
-			wantPath:  "/geocode/v1/search",
-			wantText:  "marina bay",
-			wantLimit: "1",
+			name:  "only determined components are sent, omitted limit defaults to 1",
+			input: GeocodeInput{Name: "marina bay", Country: "singapore"},
+			wantSet: map[string]string{
+				"name":    "marina bay",
+				"country": "singapore",
+				"limit":   "1",
+			},
+			wantAbsent: []string{"housenumber", "street", "postcode", "city", "text"},
 		},
 		{
-			name:      "explicit limit is forwarded",
-			input:     GeocodeInput{Text: "marina bay", Limit: 3},
-			wantPath:  "/geocode/v1/search",
-			wantText:  "marina bay",
-			wantLimit: "3",
+			name: "full address forwards every component",
+			input: GeocodeInput{
+				Name:        "Marina Bay Sands",
+				Housenumber: "10",
+				Street:      "Bayfront Avenue",
+				Postcode:    "018956",
+				City:        "Singapore",
+				Country:     "Singapore",
+				Limit:       3,
+			},
+			wantSet: map[string]string{
+				"name":        "Marina Bay Sands",
+				"housenumber": "10",
+				"street":      "Bayfront Avenue",
+				"postcode":    "018956",
+				"city":        "Singapore",
+				"country":     "Singapore",
+				"limit":       "3",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var gotPath, gotText, gotLimit string
+			var gotPath string
+			var gotQuery url.Values
 			client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 				gotPath = r.URL.Path
-				gotText = r.URL.Query().Get("text")
-				gotLimit = r.URL.Query().Get("limit")
+				gotQuery = r.URL.Query()
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"results":[{"lon":103.8,"lat":1.3}]}`))
 			})
@@ -180,14 +203,19 @@ func TestSearchGeocodeLimitForwarding(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if gotPath != tt.wantPath {
-				t.Fatalf("unexpected path: got %q, want %q", gotPath, tt.wantPath)
+			if gotPath != "/geocode/v1/search" {
+				t.Fatalf("unexpected path: got %q, want %q", gotPath, "/geocode/v1/search")
 			}
-			if gotText != tt.wantText {
-				t.Fatalf("unexpected text: got %q, want %q", gotText, tt.wantText)
+
+			for key, want := range tt.wantSet {
+				if got := gotQuery.Get(key); got != want {
+					t.Fatalf("unexpected %s: got %q, want %q", key, got, want)
+				}
 			}
-			if gotLimit != tt.wantLimit {
-				t.Fatalf("unexpected limit: got %q, want %q", gotLimit, tt.wantLimit)
+			for _, key := range tt.wantAbsent {
+				if got := gotQuery.Get(key); got != "" {
+					t.Fatalf("expected %s to be omitted, got %q", key, got)
+				}
 			}
 		})
 	}
@@ -205,7 +233,7 @@ func TestSearchGeocodeAPIErrorPassthrough(t *testing.T) {
 	_, _, err := searchGeocode(
 		context.Background(),
 		client,
-		GeocodeInput{Text: "marina bay"},
+		GeocodeInput{City: "Singapore"},
 	)
 	if err == nil {
 		t.Fatal("expected error")

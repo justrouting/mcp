@@ -77,18 +77,24 @@ Output:
 
 ### `geocode`
 
-Search for places and convert an address or place name into coordinates. Use this before `route` when the user refers to places by name.
+Search for places and convert a place name or address into coordinates. Use this before `route` when the user refers to places by name.
+
+The search is structured: the assistant parses the user's place reference into address components and passes only the ones it can determine — `name`, `housenumber`, `street`, `postcode`, `city`, `country`. Components with no data are omitted. Prefer including `country` (and `city`) when the context implies them — they are the strongest disambiguators for common, abbreviated, or misspelled names.
 
 Input:
 
 ```json
 {
-  "text": "marina bay singapore",
-  "limit": 3
+  "name": "Marina Bay Sands",
+  "housenumber": "10",
+  "street": "Bayfront Avenue",
+  "postcode": "018956",
+  "city": "Singapore",
+  "country": "Singapore"
 }
 ```
 
-`limit` is optional and defaults to 1 (best match only); it must not exceed 10. `filters` is also optional, for example `"filters": ["countrycode:sg"]` to restrict results to Singapore.
+At least one component is required. `limit` is optional and defaults to 1 (best match only); it must not exceed 10. `filters` is also optional, for example `"filters": ["countrycode:sg"]` to restrict results to Singapore.
 
 Output:
 
@@ -114,8 +120,8 @@ Results are ordered best first. The `coordinates` field is ready to pass to `rou
 
 For a prompt such as "how long from 'marina bay singapore' driving to 'changqi airport'?", the assistant geocodes each place and then routes:
 
-1. `geocode` with `"text": "marina bay singapore"` → take `coordinates`
-2. `geocode` with `"text": "changqi airport"` → take `coordinates`
+1. `geocode` with `"name": "marina bay", "country": "singapore"` → take `coordinates`
+2. `geocode` with `"name": "changqi airport"` → take `coordinates`
 3. `route` with the two `coordinates` values as `origin` and `destination` (omit `profile` for driving)
 
 ## Claude

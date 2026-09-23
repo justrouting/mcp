@@ -3,7 +3,7 @@ module github.com/justrouting/mcp
 go 1.25.0
 
 require (
-	github.com/justrouting/go-client v0.1.2-0.20260923125424-6b2ecacd18aa
+	github.com/justrouting/go-client v0.2.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 )
 
