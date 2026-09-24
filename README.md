@@ -17,10 +17,32 @@ Use JustRouting's road-routing capabilities from MCP-compatible AI assistants su
 
 ## Requirements
 
-* Go 1.25+
 * A JustRouting API key
+* Go 1.25+ (only needed when installing from source)
 
 ## Installation
+
+### One-line installer (macOS / Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/justrouting/mcp/main/install.sh | sh
+```
+
+Downloads the latest prebuilt binary for your OS/architecture from [GitHub Releases](https://github.com/justrouting/mcp/releases), verifies its checksum, and installs it to `/usr/local/bin` (or `~/.local/bin`). No Go required.
+
+Pin a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/justrouting/mcp/main/install.sh | JUSTROUTING_MCP_VERSION=v0.1.1 sh
+```
+
+Uninstall: remove the `justrouting-mcp` binary from the directory it was installed to.
+
+### Manual download
+
+Prebuilt binaries for macOS, Linux, and Windows are attached to every [release](https://github.com/justrouting/mcp/releases). Download the archive for your platform, extract it, and put the binary on your `PATH`.
+
+### From source (Go users)
 
 ```bash
 go install github.com/justrouting/mcp/cmd/justrouting-mcp@latest
@@ -192,6 +214,17 @@ JUSTROUTING_API_KEY="YOUR-API-KEY" ./justrouting-mcp
 ```
 
 The server communicates with MCP clients through stdin/stdout.
+
+## Releasing
+
+Tag and push — GitHub Actions builds the binaries and publishes the release:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+The `install.sh` script always installs the latest release, so it never needs to be updated when a new version ships.
 
 ## Architecture
 

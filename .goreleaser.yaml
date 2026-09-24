@@ -1,0 +1,47 @@
+# GoReleaser configuration — builds release binaries and publishes
+# them to GitHub Releases when a tag is pushed (see .github/workflows/release.yml).
+# Docs: https://goreleaser.com
+
+version: 2
+
+project_name: justrouting-mcp
+
+builds:
+  - id: justrouting-mcp
+    main: ./cmd/justrouting-mcp
+    binary: justrouting-mcp
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    # Versionless asset names so install.sh can use the stable
+    # /releases/latest/download/<asset> URL. A specific version can be
+    # pinned via /releases/download/vX.Y.Z/<asset>.
+    name_template: >-
+      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
