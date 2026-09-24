@@ -10,9 +10,13 @@ import (
 )
 
 const (
-	name    = "justrouting"
-	version = "0.2.0"
+	name = "justrouting"
 )
+
+// version is injected at build time via
+// -ldflags "-X github.com/justrouting/mcp/internal/server.version=vX.Y.Z"
+// (see .goreleaser.yaml). Local builds without ldflags report "dev".
+var version = "dev"
 
 type Config struct {
 	APIKey string
