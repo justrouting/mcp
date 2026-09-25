@@ -53,6 +53,12 @@ the route tool's profile input.
 The route tool takes coordinates as longitude,latitude. When the user
 asks about places by name or address, call the geocode tool first to
 look up each place, then pass the returned coordinates to the route tool.
+
+The table tool calculates a matrix of driving distances and durations
+between many coordinates at once. When comparing several places (for
+example, finding the nearest of several drivers), call the geocode tool
+first for every place, pass the coordinates to the table tool as a single
+ordered list, and read the returned matrix by list position.
 			`,
 			Logger: cfg.Logger,
 		},
@@ -68,6 +74,13 @@ look up each place, then pass the returned coordinates to the route tool.
 	tools.RegisterGeocodeTool(
 		mcpServer,
 		tools.GeocodeConfig{
+			APIKey: cfg.APIKey,
+		},
+	)
+
+	tools.RegisterTableTool(
+		mcpServer,
+		tools.TableConfig{
 			APIKey: cfg.APIKey,
 		},
 	)
