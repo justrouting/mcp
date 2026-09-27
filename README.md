@@ -12,6 +12,7 @@ Use JustRouting's road-routing capabilities from MCP-compatible AI assistants su
 * Estimated travel duration
 * Distance and duration matrix (table)
 * Address and place search (geocoding)
+* Route optimization (vehicle routing)
 * Southeast Asia-focused road coverage
 * MCP stdio transport
 * Built on the official JustRouting Go client
@@ -137,7 +138,7 @@ Output:
 }
 ```
 
-Results are ordered best first. The `coordinates` field is ready to pass to `route` or `table`. If nothing matches, the tool returns an error.
+Results are ordered best first — always take the first result's `coordinates` (ready to pass to `route`, `table` or `optimize`). If nothing matches, the tool returns an error.
 
 ### `table`
 
@@ -182,15 +183,69 @@ Output:
 
 `durations` is in seconds and `distances` in meters, each indexed `[source][destination]`. A `null` entry means the engine could not connect that pair — it is not zero. Every source and destination object carries an `index` back to the input `coordinates` list.
 
+### `optimize`
+
+Assign jobs to vehicles and order each vehicle's stops (vehicle routing). Use it for delivery or visit planning — for example, two vans picking up parcels from customers.
+
+The assistant geocodes every place first — always taking each call's first (best) result — then builds the request. For a prompt such as "I have two vans, V1 at 'garlick ville singapore' and V2 at 'victoria place singapore'; pick up parcels from 6 customers at 'original sin', 'henry park primary school', 'astrid meadows tennis court', 'little oaks montessori kindergarten', 'eden hall' and 'villa chancery'", the assistant geocodes all 8 places and calls:
+
+Input:
+
+```json
+{
+  "vehicles": [
+    {"id": 1, "start": "103.79234106,1.32463108", "end": "103.79234106,1.32463108"},
+    {"id": 2, "start": "103.82324228,1.32408622", "end": "103.82324228,1.32408622"}
+  ],
+  "jobs": [
+    {"id": 1, "location": "103.79751693,1.31035001"},
+    {"id": 2, "location": "103.78432387,1.31490148"},
+    {"id": 3, "location": "103.79763397,1.31980519"},
+    {"id": 4, "location": "103.81234512,1.31824846"},
+    {"id": 5, "location": "103.82152987,1.30984208"},
+    {"id": 6, "location": "103.83701939,1.32143977"}
+  ]
+}
+```
+
+At least one vehicle and one job are required, with unique ids. Coordinates are `longitude,latitude` strings (as returned by `geocode`). Set a vehicle's `start` and `end` both to its current location for a round trip, or omit them (or pass `""`) when the vehicle may start or end anywhere. `profile` works per vehicle exactly as in `route` — set `"motorcycle"` when the user mentions a motorcycle or motorbike, otherwise omit it (or use `"car"`) for driving.
+
+Output (vehicle 2's route and some fields omitted for brevity):
+
+```json
+{
+  "summary": {"cost": 2733, "routes": 2, "unassigned": 0, "duration": 2733},
+  "routes": [
+    {
+      "vehicle": 1,
+      "cost": 1144,
+      "duration": 1144,
+      "steps": [
+        {"type": "start", "location": [103.79234106, 1.32463108], "arrival": 0},
+        {"type": "job", "job": 2, "location": [103.78432387, 1.31490148], "arrival": 269, "duration": 269},
+        {"type": "job", "job": 1, "location": [103.79751693, 1.31035001], "arrival": 673, "duration": 673},
+        {"type": "job", "job": 3, "location": [103.79763397, 1.31980519], "arrival": 922, "duration": 922},
+        {"type": "end", "location": [103.79234106, 1.32463108], "arrival": 1144, "duration": 1144}
+      ]
+    }
+  ],
+  "unassigned": []
+}
+```
+
+Read each route's `steps` in order: `"job"` steps carry the job id plus the arrival time and travel duration in seconds, so they tell which vehicle serves which jobs and when. `unassigned` lists the jobs no vehicle could serve. `summary` aggregates cost, duration and distance across all routes.
+
 ### Asking about places by name
 
 For a prompt such as "how long from 'marina bay singapore' driving to 'changqi airport'?", the assistant geocodes each place and then routes:
 
-1. `geocode` with `"name": "marina bay", "country": "singapore"` → take `coordinates`
-2. `geocode` with `"name": "changqi airport"` → take `coordinates`
+1. `geocode` with `"name": "marina bay", "country": "singapore"` → take the first result's `coordinates`
+2. `geocode` with `"name": "changqi airport"` → take the first result's `coordinates`
 3. `route` with the two `coordinates` values as `origin` and `destination` (omit `profile` for driving)
 
-For a comparison such as "which of these 4 drivers is nearest to the customer?", geocode the customer and every driver, pass all `coordinates` values to `table` in a fixed order — customer first — and read the first row of the returned matrices.
+For a comparison such as "which of these 4 drivers is nearest to the customer?", geocode the customer and every driver, take each call's first result, pass all `coordinates` values to `table` in a fixed order — customer first — and read the first row of the returned matrices.
+
+For a multi-vehicle plan such as "two vans, six customers to pick up from", geocode the vans' locations and every customer, take each call's first result, then call `optimize` with one vehicle entry per van (start and end set to its location) and one job entry per customer. Read the `routes[].steps` in order to see which van serves which customers.
 
 ## Claude
 
@@ -288,6 +343,7 @@ The `install.sh` script always installs the latest release, so it never needs to
 │  geocode tool        │
 │  route tool          │
 │  table tool          │
+│  optimize tool       │
 └──────────┬───────────┘
            │
            │ Go Client
@@ -307,7 +363,7 @@ Routing logic, API authentication, HTTP transport, retries, and API error handli
 * [ ] Alternative routes
 * [ ] Waypoints
 * [x] Distance matrix
-* [ ] Route optimization
+* [x] Route optimization
 * [ ] Streamable HTTP
 * [ ] Remote MCP deployment
 

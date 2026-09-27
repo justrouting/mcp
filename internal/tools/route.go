@@ -45,7 +45,7 @@ For example: 103.8198,1.3521
 
 If the user gives place names or addresses instead of coordinates, do not
 guess coordinates. Call the geocode tool first to look up each place, then
-pass the returned "coordinates" values to this tool.
+pass the "coordinates" value of its first (best) result to this tool.
 
 Optional "profile" input selects the routing profile:
 - If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".

@@ -52,13 +52,27 @@ the route tool's profile input.
 
 The route tool takes coordinates as longitude,latitude. When the user
 asks about places by name or address, call the geocode tool first to
-look up each place, then pass the returned coordinates to the route tool.
+look up each place, then pass the first result's coordinates to the
+route tool.
 
 The table tool calculates a matrix of driving distances and durations
 between many coordinates at once. When comparing several places (for
 example, finding the nearest of several drivers), call the geocode tool
-first for every place, pass the coordinates to the table tool as a single
-ordered list, and read the returned matrix by list position.
+first for every place, pass each geocode call's first result coordinates
+to the table tool as a single ordered list, and read the returned matrix
+by list position.
+
+The optimize tool solves vehicle routing problems: it assigns jobs to
+vehicles and orders each vehicle's stops. When the user asks to plan
+deliveries or visits with one or more vehicles, call the geocode tool
+first for every place involved, then call the optimize tool with each
+geocode call's first result coordinates as longitude,latitude strings:
+one vehicle entry per vehicle (with "id", "profile", and "start"/"end"
+set to the vehicle's location for a round trip, or left empty when the
+vehicle may start or end anywhere) and one job entry per task (with "id"
+and "location"). Read the response's "routes" array: each route's
+"steps", in order, show which jobs that vehicle serves and when it
+arrives; "unassigned" lists the jobs no vehicle could serve.
 			`,
 			Logger: cfg.Logger,
 		},
@@ -81,6 +95,13 @@ ordered list, and read the returned matrix by list position.
 	tools.RegisterTableTool(
 		mcpServer,
 		tools.TableConfig{
+			APIKey: cfg.APIKey,
+		},
+	)
+
+	tools.RegisterOptimizeTool(
+		mcpServer,
+		tools.OptimizeConfig{
 			APIKey: cfg.APIKey,
 		},
 	)

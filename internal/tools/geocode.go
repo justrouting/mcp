@@ -71,9 +71,8 @@ longitude, latitude, and a ready-to-use "coordinates" string in longitude,latitu
 format that can be passed directly to the route tool.
 
 Use this tool first when the user refers to places by name or address (for example
-"marina bay singapore"). By default only the best match is returned; if the result
-looks ambiguous, raise "limit" and use the formatted address and country code to
-pick the most plausible result, or ask the user to clarify.
+"marina bay singapore"). Always take the coordinates of the first result — it is
+the best match.
 			`,
 		},
 		func(

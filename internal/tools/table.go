@@ -58,7 +58,8 @@ For example: ["103.8198,1.3521", "103.9915,1.3644"]
 
 If the user gives place names or addresses instead of coordinates, do not
 guess coordinates. Call the geocode tool first to look up every place, then
-pass the returned "coordinates" values to this tool. Keep the places in a
+pass each geocode call's first (best) result "coordinates" value to this
+tool. Keep the places in a
 fixed order: each position in your coordinates list is an index, the rows
 and columns of the returned matrices are numbered by these indices, and
 every source/destination object in the result carries an "index" field
