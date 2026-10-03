@@ -1,0 +1,75 @@
+{
+  "manifest_version": "0.4",
+  "name": "justrouting",
+  "display_name": "JustRouting",
+  "version": "0.1.5",
+  "description": "Road routing, travel-time matrices, geocoding, and fleet optimization for Southeast Asia. Car and motorcycle profiles.",
+  "long_description": "The JustRouting MCP server gives Claude access to the JustRouting routing API:\n\n- **route** - driving or motorcycle routes between two locations, with distance and travel duration\n- **geocode** - turn place names and addresses into coordinates\n- **table** - travel-time and distance matrices between many locations at once\n- **optimize** - multi-vehicle routing plans (fleet optimization / vehicle routing problems)\n\nSoutheast Asia coverage. Free tier available; sign up at https://justrouting.tech to get an API key.",
+  "author": {
+    "name": "JustRouting",
+    "url": "https://justrouting.tech"
+  },
+  "homepage": "https://justrouting.tech",
+  "documentation": "https://docs.justrouting.tech/guides/mcp",
+  "support": "https://github.com/justrouting/mcp/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justrouting/mcp"
+  },
+  "icon": "icon.png",
+  "license": "MIT",
+  "keywords": [
+    "routing",
+    "directions",
+    "distance-matrix",
+    "geocoding",
+    "fleet-optimization",
+    "vehicle-routing",
+    "southeast-asia",
+    "motorcycle",
+    "logistics",
+    "maps"
+  ],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/justrouting-mcp",
+    "mcp_config": {
+      "command": "server/justrouting-mcp",
+      "args": [],
+      "env": {
+        "JUSTROUTING_API_KEY": "${user_config.justrouting_api_key}"
+      }
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"]
+  },
+  "user_config": {
+    "justrouting_api_key": {
+      "type": "string",
+      "title": "JustRouting API Key",
+      "description": "Your JustRouting API key. Free keys are available at https://justrouting.tech.",
+      "required": true,
+      "sensitive": true
+    }
+  },
+  "tools": [
+    {
+      "name": "route",
+      "description": "Calculate a driving or motorcycle route between two locations - distance and estimated travel duration"
+    },
+    {
+      "name": "geocode",
+      "description": "Convert a place name or address into coordinates"
+    },
+    {
+      "name": "table",
+      "description": "Compute a matrix of travel durations and distances between many locations at once"
+    },
+    {
+      "name": "optimize",
+      "description": "Solve vehicle routing problems - assign jobs to vehicles and order each vehicle's stops"
+    }
+  ]
+}

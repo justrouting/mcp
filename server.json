@@ -1,10 +1,14 @@
 {
-  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/docs/reference/server-json/draft/server.schema.json",
-  "name": "justrouting",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.justrouting/justrouting",
   "title": "JustRouting MCP Server",
-  "description": "Road routing, travel-time matrices, geocoding, and vehicle-routing optimization for Southeast Asia via the JustRouting API. Car and motorcycle profiles; free tier available.",
+  "description": "Road routing, travel-time matrices, geocoding, and fleet optimization for Southeast Asia.",
   "version": "0.1.5",
   "websiteUrl": "https://justrouting.tech",
+  "repository": {
+    "url": "https://github.com/justrouting/mcp",
+    "source": "github"
+  },
   "tools": [
     {
       "name": "route",
@@ -23,22 +27,19 @@
       "description": "Solve vehicle routing problems - assign jobs to vehicles and order each vehicle's stops"
     }
   ],
-  "repository": {
-    "url": "https://github.com/justrouting/mcp",
-    "source": "github"
-  },
   "packages": [
     {
-      "registryType": "github-release",
-      "identifier": "justrouting/mcp",
-      "version": "0.1.5",
+      "registryType": "mcpb",
+      "identifier": "https://github.com/justrouting/mcp/releases/download/v0.1.5/justrouting.mcpb",
+      "fileSha256": "db1758cf4180ec960cecee93c7961292270654db9dbf7bea6fdecb2c5d415d5a",
       "transport": { "type": "stdio" },
-      "runtimeArguments": [],
       "environmentVariables": [
         {
           "name": "JUSTROUTING_API_KEY",
           "description": "Your JustRouting API key (create one at https://justrouting.tech)",
-          "required": true
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
         }
       ]
     }

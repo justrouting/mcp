@@ -32,3 +32,6 @@ go.work.sum
 # .vscode/
 .claude/
 justrouting-mcp
+
+# MCPB bundle artifact (built by scripts/build-mcpb.sh, hosted on GitHub releases)
+justrouting.mcpb
