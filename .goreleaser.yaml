@@ -35,6 +35,40 @@ archives:
     name_template: >-
       {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}
 
+dockers:
+  - image_templates:
+      - "ghcr.io/justrouting/justrouting-mcp:{{ .Version }}-amd64"
+    use: buildx
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/justrouting/mcp"
+  - image_templates:
+      - "ghcr.io/justrouting/justrouting-mcp:{{ .Version }}-arm64"
+    use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/justrouting/mcp"
+
+docker_manifests:
+  - name_template: ghcr.io/justrouting/justrouting-mcp:{{ .Version }}
+    image_templates:
+      - ghcr.io/justrouting/justrouting-mcp:{{ .Version }}-amd64
+      - ghcr.io/justrouting/justrouting-mcp:{{ .Version }}-arm64
+  - name_template: ghcr.io/justrouting/justrouting-mcp:latest
+    image_templates:
+      - ghcr.io/justrouting/justrouting-mcp:{{ .Version }}-amd64
+      - ghcr.io/justrouting/justrouting-mcp:{{ .Version }}-arm64
+
 checksum:
   name_template: checksums.txt
 
