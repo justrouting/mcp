@@ -5,6 +5,8 @@
 [![Latest Release](https://img.shields.io/github/v/release/justrouting/mcp)](https://github.com/justrouting/mcp/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+[![JustRouting MCP MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/justrouting/mcp/badges/card.svg)](https://glama.ai/mcp/servers/justrouting/mcp)
+
 MCP server for [JustRouting](https://justrouting.tech/), a Southeast Asia-focused routing API.
 
 Use JustRouting's road-routing capabilities from MCP-compatible AI assistants such as Claude and Cursor.
