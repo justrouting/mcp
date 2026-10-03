@@ -5,6 +5,24 @@
   "description": "Road routing, travel-time matrices, geocoding, and vehicle-routing optimization for Southeast Asia via the JustRouting API. Car and motorcycle profiles; free tier available.",
   "version": "0.1.5",
   "websiteUrl": "https://justrouting.tech",
+  "tools": [
+    {
+      "name": "route",
+      "description": "Calculate a driving or motorcycle route between two locations - distance and estimated travel duration"
+    },
+    {
+      "name": "geocode",
+      "description": "Convert a place name or address into coordinates"
+    },
+    {
+      "name": "table",
+      "description": "Compute a matrix of travel durations and distances between many locations at once"
+    },
+    {
+      "name": "optimize",
+      "description": "Solve vehicle routing problems - assign jobs to vehicles and order each vehicle's stops"
+    }
+  ],
   "repository": {
     "url": "https://github.com/justrouting/mcp",
     "source": "github"
