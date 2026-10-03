@@ -1,5 +1,10 @@
 # JustRouting MCP
 
+[![CI](https://github.com/justrouting/mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/justrouting/mcp/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/justrouting/mcp)](https://goreportcard.com/report/github.com/justrouting/mcp)
+[![Latest Release](https://img.shields.io/github/v/release/justrouting/mcp)](https://github.com/justrouting/mcp/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 MCP server for [JustRouting](https://justrouting.tech/), a Southeast Asia-focused routing API.
 
 Use JustRouting's road-routing capabilities from MCP-compatible AI assistants such as Claude and Cursor.
