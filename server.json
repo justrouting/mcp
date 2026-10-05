@@ -12,7 +12,7 @@
   "tools": [
     {
       "name": "route",
-      "description": "Calculate a driving or motorcycle route between two locations - distance and estimated travel duration"
+      "description": "Calculate a driving or motorcycle route between two locations - distance, travel duration, route geometry, snapped endpoints and main roads"
     },
     {
       "name": "geocode",

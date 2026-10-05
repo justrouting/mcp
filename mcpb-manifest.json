@@ -4,7 +4,7 @@
   "display_name": "JustRouting",
   "version": "0.1.5",
   "description": "Road routing, travel-time matrices, geocoding, and fleet optimization for Southeast Asia. Car and motorcycle profiles.",
-  "long_description": "The JustRouting MCP server gives Claude access to the JustRouting routing API:\n\n- **route** - driving or motorcycle routes between two locations, with distance and travel duration\n- **geocode** - turn place names and addresses into coordinates\n- **table** - travel-time and distance matrices between many locations at once\n- **optimize** - multi-vehicle routing plans (fleet optimization / vehicle routing problems)\n\nSoutheast Asia coverage. Free tier available; sign up at https://justrouting.tech to get an API key.",
+  "long_description": "The JustRouting MCP server gives Claude access to the JustRouting routing API:\n\n- **route** - driving or motorcycle routes between two locations, with distance, travel duration and route geometry\n- **geocode** - turn place names and addresses into coordinates\n- **table** - travel-time and distance matrices between many locations at once\n- **optimize** - multi-vehicle routing plans (fleet optimization / vehicle routing problems)\n\nSoutheast Asia coverage. Free tier available; sign up at https://justrouting.tech to get an API key.",
   "author": {
     "name": "JustRouting",
     "url": "https://justrouting.tech"
@@ -57,7 +57,7 @@
   "tools": [
     {
       "name": "route",
-      "description": "Calculate a driving or motorcycle route between two locations - distance and estimated travel duration"
+      "description": "Calculate a driving or motorcycle route between two locations - distance, travel duration, route geometry, snapped endpoints and main roads"
     },
     {
       "name": "geocode",

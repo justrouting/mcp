@@ -69,6 +69,9 @@ Use this tool when comparing several places at once, for example picking
 the nearest of several drivers: put the customer first and the drivers
 after, then read the first row (or column) of the returned matrices.
 
+For a single route between two places use the route tool; for assigning
+jobs to vehicles and ordering their stops use the optimize tool.
+
 Returns "durations" in seconds and "distances" in meters, each indexed
 [source][destination]. A pair the engine cannot connect is reported as
 null and must not be read as zero.

@@ -68,10 +68,11 @@ names.
 
 Returns a list of matching places, ordered by relevance. Each result includes
 longitude, latitude, and a ready-to-use "coordinates" string in longitude,latitude
-format that can be passed directly to the route tool.
+format that can be passed directly to the route, table or optimize tools.
 
-Use this tool first when the user refers to places by name or address (for example
-"marina bay singapore"). Always take the coordinates of the first result — it is
+Use this tool first when the user refers to places by name or address
+(for example "marina bay singapore") and the task needs the route, table
+or optimize tool. Always take the coordinates of the first result — it is
 the best match.
 			`,
 		},

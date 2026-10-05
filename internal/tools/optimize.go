@@ -93,6 +93,11 @@ func RegisterOptimizeTool(
 			Description: `
 Solve a vehicle routing problem using JustRouting: assign jobs to vehicles and order each vehicle's stops.
 
+Use this tool when the user asks to assign jobs to vehicles and order each
+vehicle's stops (deliveries, pickups, visits). For a single route between
+two places use the route tool; for comparing many places at once use the
+table tool.
+
 The input is a fleet of vehicles and a list of jobs:
 - Each vehicle has an "id", an optional "profile", and "start"/"end" locations in
   longitude,latitude format. For a round trip (the vehicle returns to where it began),

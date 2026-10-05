@@ -79,11 +79,14 @@ Input:
 {
   "origin": "103.8198,1.3521",
   "destination": "103.9915,1.3644",
-  "profile": "motorcycle"
+  "profile": "motorcycle",
+  "exclude": ["toll"]
 }
 ```
 
 `profile` is optional. Set it to `"motorcycle"` for a motorcycle route; omit it (or use `"car"`) for the default driving route. When the user mentions a motorcycle or motorbike, the assistant sets `profile` to `"motorcycle"`.
+
+`exclude` is optional. Pass the road classes to avoid, for example `["toll"]` when the user asks to avoid toll roads. Supported values are `"toll"`, `"motorway"` and `"ferry"`; the engine routes around them where a reasonable alternative exists.
 
 Coordinates must use:
 
@@ -98,13 +101,40 @@ Output:
 ```json
 {
   "distance_meters": 18500,
-  "duration_seconds": 1500
+  "duration_seconds": 1500,
+  "profile": "driving",
+  "origin": {
+    "input": "103.859,1.2834",
+    "snapped": [103.8588, 1.2831],
+    "name": "Bayfront Avenue",
+    "distance": 4.2
+  },
+  "destination": {
+    "input": "103.9915,1.3644",
+    "snapped": [103.9915, 1.3644],
+    "name": "Airport Boulevard",
+    "distance": 8.1
+  },
+  "geometry": "ka|`@_ceeEnAqB...",
+  "summary": {
+    "major_roads": ["East Coast Parkway"]
+  }
 }
 ```
 
 `distance_meters` is the driving distance in meters.
 
 `duration_seconds` is the estimated driving duration in seconds.
+
+`profile` echoes the routing profile that was used (`"driving"` or `"motorcycle"`).
+
+`origin` and `destination` report each endpoint as the engine used it: the requested `input` coordinate, where it `snapped` to the nearest road, the `name` of that street (when known), and the snap `distance` in meters.
+
+`geometry` is the route's shape as an encoded polyline (simplified overview), for rendering on a map.
+
+`summary.major_roads` lists the main roads the route travels, in order. This gives the assistant the facts it needs to explain the route (for example: "about 18.5 km in 25 minutes, mainly using the East Coast Parkway").
+
+`exclude` echoes the road classes the route avoids, when any were requested.
 
 ### `geocode`
 
@@ -366,7 +396,7 @@ Routing logic, API authentication, HTTP transport, retries, and API error handli
 
 ## Roadmap
 
-* [ ] Route geometry
+* [x] Route geometry
 * [ ] Alternative routes
 * [ ] Waypoints
 * [x] Distance matrix
