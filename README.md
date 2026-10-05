@@ -117,7 +117,9 @@ Output:
   },
   "geometry": "ka|`@_ceeEnAqB...",
   "summary": {
-    "major_roads": ["East Coast Parkway"]
+    "major_roads": ["East Coast Parkway"],
+    "tolls": false,
+    "ferry": false
   }
 }
 ```
@@ -133,6 +135,8 @@ Output:
 `geometry` is the route's shape as an encoded polyline (simplified overview), for rendering on a map.
 
 `summary.major_roads` lists the main roads the route travels, in order. This gives the assistant the facts it needs to explain the route (for example: "about 18.5 km in 25 minutes, mainly using the East Coast Parkway").
+
+`summary.tolls` and `summary.ferry` are true when the route passes through toll roads or includes a ferry crossing, so the assistant can mention costs or a ferry leg when describing the route.
 
 `exclude` echoes the road classes the route avoids, when any were requested.
 

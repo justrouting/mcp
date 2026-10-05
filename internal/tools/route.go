@@ -43,6 +43,8 @@ type RoutePointOutput struct {
 
 type RouteSummaryOutput struct {
 	MajorRoads []string `json:"major_roads" jsonschema:"main roads the route travels, in order of travel; consecutive repeats are collapsed"`
+	Tolls      bool     `json:"tolls" jsonschema:"true when the route passes through toll roads"`
+	Ferry      bool     `json:"ferry" jsonschema:"true when the route includes a ferry crossing"`
 }
 
 func RegisterRouteTool(
@@ -56,7 +58,7 @@ func RegisterRouteTool(
 		&mcp.Tool{
 			Name: "route",
 			Description: `
-Calculate a route between two locations using JustRouting: distance in meters, estimated travel duration in seconds, the route's polyline geometry, the snapped origin and destination, and the main roads traveled.
+Calculate a route between two locations using JustRouting: distance in meters, estimated travel duration in seconds, the route's polyline geometry, the snapped origin and destination, the main roads traveled, and whether the route uses toll roads or a ferry.
 
 Use this tool when the user asks for the distance, travel time or a route between two places. For comparing many places at once (for example, which of several drivers is nearest) use the table tool. For assigning jobs to vehicles and ordering their stops use the optimize tool.
 
@@ -116,6 +118,13 @@ func getRoute(
 			Destination: destination,
 			Profile:     profile,
 			Exclude:     exclude,
+			// Steps is the only way the engine reports intersection road
+			// classes and leg summaries: the classes feed the summary
+			// tolls/ferry booleans and the summaries fill major_roads
+			// (both are empty without them). The steps themselves never
+			// enter the tool output, so the MCP response shape is
+			// unchanged.
+			Steps: true,
 			// Explicitly request the compact polyline overview so the
 			// response stays small and deterministic for LLM context.
 			Geometries: "polyline",
@@ -137,6 +146,8 @@ func getRoute(
 	}
 	route := resp.Routes[0]
 
+	tolls, ferry := roadClasses(route.Legs)
+
 	out := RouteOutput{
 		DistanceMeters:  route.Distance,
 		DurationSeconds: route.Duration,
@@ -146,6 +157,8 @@ func getRoute(
 		Exclude:         exclude,
 		Summary: RouteSummaryOutput{
 			MajorRoads: majorRoads(route.Legs),
+			Tolls:      tolls,
+			Ferry:      ferry,
 		},
 	}
 
@@ -202,6 +215,39 @@ func majorRoads(legs []*justrouting.Leg) []string {
 		prev = name
 	}
 	return out
+}
+
+// roadClasses reports whether the route touches toll roads or a ferry,
+// from the per-intersection road classes the engine attaches to step
+// intersections. The classes are only present when steps are requested;
+// nil legs, steps and intersections contribute nothing. If a real route
+// ever shows a missed ferry, step.Mode == "ferry" is the fallback signal
+// to add here.
+func roadClasses(legs []*justrouting.Leg) (tolls, ferry bool) {
+	for _, leg := range legs {
+		if leg == nil {
+			continue
+		}
+		for _, step := range leg.Steps {
+			if step == nil {
+				continue
+			}
+			for _, intersection := range step.Intersections {
+				if intersection == nil {
+					continue
+				}
+				for _, class := range intersection.Classes {
+					switch strings.ToLower(class) {
+					case "toll":
+						tolls = true
+					case "ferry":
+						ferry = true
+					}
+				}
+			}
+		}
+	}
+	return tolls, ferry
 }
 
 func parsePoint(value string) (justrouting.Point, error) {
