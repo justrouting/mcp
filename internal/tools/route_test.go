@@ -157,8 +157,8 @@ func TestGetRouteDecodesResponse(t *testing.T) {
 		t.Fatalf("unexpected geometry: %q", output.Geometry)
 	}
 
-	if !slices.Equal(output.Summary.MajorRoads, []string{"East Coast Parkway"}) {
-		t.Fatalf("unexpected major roads: %v", output.Summary.MajorRoads)
+	if !slices.Equal(output.Summary.Roads, []string{"East Coast Parkway"}) {
+		t.Fatalf("unexpected major roads: %v", output.Summary.Roads)
 	}
 	if !output.Summary.Tolls {
 		t.Fatal("expected tolls true, got false")
@@ -295,8 +295,8 @@ func TestGetRouteWaypointsMissing(t *testing.T) {
 	}
 
 	// An empty road list still serializes as [], never null.
-	if output.Summary.MajorRoads == nil || len(output.Summary.MajorRoads) != 0 {
-		t.Fatalf("expected empty major roads, got: %v", output.Summary.MajorRoads)
+	if output.Summary.Roads == nil || len(output.Summary.Roads) != 0 {
+		t.Fatalf("expected empty major roads, got: %v", output.Summary.Roads)
 	}
 
 	// Without step data the tolls/ferry booleans default to false.
@@ -429,7 +429,7 @@ func TestGetRouteAPIErrorPassthrough(t *testing.T) {
 	}
 }
 
-func TestMajorRoads(t *testing.T) {
+func TestRoads(t *testing.T) {
 	leg := func(summary string) *justrouting.Leg {
 		return &justrouting.Leg{Summary: summary}
 	}
@@ -449,7 +449,7 @@ func TestMajorRoads(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := majorRoads(tt.legs)
+			got := roads(tt.legs)
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("unexpected roads: got %v, want %v", got, tt.want)
 			}

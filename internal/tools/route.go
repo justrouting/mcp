@@ -15,36 +15,36 @@ type RouteConfig struct {
 }
 
 type RouteInput struct {
-	Origin      string   `json:"origin" jsonschema:"origin coordinates in longitude,latitude format"`
-	Destination string   `json:"destination" jsonschema:"destination coordinates in longitude,latitude format"`
-	Profile     Profile  `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
+	Origin      string    `json:"origin" jsonschema:"origin coordinates in longitude,latitude format"`
+	Destination string    `json:"destination" jsonschema:"destination coordinates in longitude,latitude format"`
+	Profile     Profile   `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
 	Exclude     []Exclude `json:"exclude,omitempty" jsonschema:"road classes to avoid, for example [\"toll\"] when the user asks to avoid toll roads"`
 }
 
 type RouteOutput struct {
-	DistanceMeters  float64            `json:"distance_meters" jsonschema:"route length in meters"`
-	DurationSeconds float64            `json:"duration_seconds" jsonschema:"estimated travel time in seconds"`
-	Profile         Profile            `json:"profile" jsonschema:"routing profile used: \"driving\" or \"motorcycle\""`
-	Origin          RoutePointOutput   `json:"origin" jsonschema:"the origin as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
-	Destination     RoutePointOutput   `json:"destination" jsonschema:"the destination as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
-	Geometry        string             `json:"geometry,omitempty" jsonschema:"the route's shape as an encoded polyline (simplified overview); omitted when the engine returned none"`
-	Exclude         []Exclude          `json:"exclude,omitempty" jsonschema:"the road classes the route avoids; omitted when none were requested"`
-	Summary         RouteSummaryOutput `json:"summary" jsonschema:"high-level description of the route"`
+	DistanceMeters  float64      `json:"distance_meters" jsonschema:"route length in meters"`
+	DurationSeconds float64      `json:"duration_seconds" jsonschema:"estimated travel time in seconds"`
+	Profile         Profile      `json:"profile" jsonschema:"routing profile used: \"driving\" or \"motorcycle\""`
+	Origin          RoutePoint   `json:"origin" jsonschema:"the origin as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
+	Destination     RoutePoint   `json:"destination" jsonschema:"the destination as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
+	Geometry        string       `json:"geometry,omitempty" jsonschema:"the route's shape as an encoded polyline (simplified overview); omitted when the engine returned none"`
+	Exclude         []Exclude    `json:"exclude,omitempty" jsonschema:"the road classes the route avoids; omitted when none were requested"`
+	Summary         RouteSummary `json:"summary" jsonschema:"high-level description of the route"`
 }
 
-// RoutePointOutput reports one endpoint of the route. When the engine did
+// RoutePoint reports one endpoint of the route. When the engine did
 // not report snapping data for the endpoint, only Input is set.
-type RoutePointOutput struct {
+type RoutePoint struct {
 	Input    string            `json:"input" jsonschema:"the coordinate as requested, in longitude,latitude format"`
 	Snapped  justrouting.Point `json:"snapped,omitempty" jsonschema:"the coordinate snapped to the nearest road, as [longitude, latitude]"`
 	Name     string            `json:"name,omitempty" jsonschema:"the street this endpoint snapped to, if known"`
 	Distance float64           `json:"distance,omitempty" jsonschema:"meters between the requested coordinate and the snapped position"`
 }
 
-type RouteSummaryOutput struct {
-	MajorRoads []string `json:"major_roads" jsonschema:"main roads the route travels, in order of travel; consecutive repeats are collapsed"`
-	Tolls      bool     `json:"tolls" jsonschema:"true when the route passes through toll roads"`
-	Ferry      bool     `json:"ferry" jsonschema:"true when the route includes a ferry crossing"`
+type RouteSummary struct {
+	Roads []string `json:"roads" jsonschema:"main roads the route travels, in order of travel; consecutive repeats are collapsed"`
+	Tolls bool     `json:"tolls" jsonschema:"true when the route passes through toll roads"`
+	Ferry bool     `json:"ferry" jsonschema:"true when the route includes a ferry crossing"`
 }
 
 func RegisterRouteTool(
@@ -60,22 +60,37 @@ func RegisterRouteTool(
 			InputSchema:  mustSchema[RouteInput]("route input schema"),
 			OutputSchema: mustSchema[RouteOutput]("route output schema"),
 			Description: `
-Calculate a route between two locations using JustRouting: distance in meters, estimated travel duration in seconds, the route's polyline geometry, the snapped origin and destination, the main roads traveled, and whether the route uses toll roads or a ferry.
+Calculate a driving route between two locations using JustRouting.
 
-Use this tool when the user asks for the distance, travel time or a route between two places. For comparing many places at once (for example, which of several drivers is nearest) use the table tool. For assigning jobs to vehicles and ordering their stops use the optimize tool.
+Use this tool when the user needs to:
+- calculate driving distance or travel time between two locations
+- get a route between two locations
+- get the route geometry or road information
+- avoid specific road types such as toll roads, motorways, or ferries
 
-Coordinates must use longitude,latitude format.
-For example: 103.8198,1.3521
+Do not use this tool for:
+- comparing travel times or distances between many origin-destination pairs; use the table tool
+- assigning multiple jobs to vehicles or determining the order of multiple stops; use the optimize tool
 
-If the user gives place names or addresses instead of coordinates, do not
-guess coordinates. Call the geocode tool first to look up each place, then
-pass the "coordinates" value of its first (best) result to this tool.
+Input locations:
+- origin and destination must be coordinates in longitude,latitude format.
+- If the user provides a place name or address, do not guess its coordinates.
+- Call the geocode tool first, then use the coordinates from its best result as the input to this tool.
+- If the user already provides coordinates, call this tool directly without using geocode.
 
-Optional "profile" input selects the routing profile:
-- If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
-- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile to get the default driving route.
+Routing profile:
+- The default profile is driving.
+- Set profile to "motorcycle" when the user explicitly asks for a motorcycle or motorbike route.
+- Otherwise, omit profile.
 
-Optional "exclude" input lists road classes to avoid, for example ["toll"] when the user asks to avoid toll roads. Supported values are "toll", "motorway" and "ferry". The engine routes around them where a reasonable alternative exists.
+Road avoidance:
+- Use exclude when the user explicitly asks to avoid a type of road.
+- Supported values are "toll", "motorway", and "ferry".
+- For example, use ["toll"] when the user asks for a route that avoids toll roads.
+- Avoidance is a preference, not a guarantee: the engine will avoid the specified road type when a reasonable alternative exists.
+
+Coordinates must be in longitude,latitude order.
+For example: 103.8198,1.3521.
 			`,
 		},
 		func(
@@ -122,7 +137,7 @@ func getRoute(
 			Exclude:     excludeStrings(exclude),
 			// Steps is the only way the engine reports intersection road
 			// classes and leg summaries: the classes feed the summary
-			// tolls/ferry booleans and the summaries fill major_roads
+			// tolls/ferry booleans and the summaries fill roads
 			// (both are empty without them). The steps themselves never
 			// enter the tool output, so the MCP response shape is
 			// unchanged.
@@ -157,10 +172,10 @@ func getRoute(
 		Origin:          buildRoutePoint(origin, waypointAt(resp.Waypoints, 0)),
 		Destination:     buildRoutePoint(destination, waypointAt(resp.Waypoints, 1)),
 		Exclude:         exclude,
-		Summary: RouteSummaryOutput{
-			MajorRoads: majorRoads(route.Legs),
-			Tolls:      tolls,
-			Ferry:      ferry,
+		Summary: RouteSummary{
+			Roads: roads(route.Legs),
+			Tolls: tolls,
+			Ferry: ferry,
 		},
 	}
 
@@ -184,11 +199,11 @@ func waypointAt(waypoints []*justrouting.Waypoint, i int) *justrouting.Waypoint 
 }
 
 // buildRoutePoint maps an input coordinate and its optional snapped waypoint
-// onto RoutePointOutput. A nil waypoint leaves only the echoed input
+// onto RoutePoint. A nil waypoint leaves only the echoed input
 // coordinate, so endpoint objects stay present even when the engine reports
 // no snapping data.
-func buildRoutePoint(input justrouting.Point, snapped *justrouting.Waypoint) RoutePointOutput {
-	out := RoutePointOutput{Input: input.String()}
+func buildRoutePoint(input justrouting.Point, snapped *justrouting.Waypoint) RoutePoint {
+	out := RoutePoint{Input: input.String()}
 	if snapped == nil {
 		return out
 	}
@@ -198,11 +213,11 @@ func buildRoutePoint(input justrouting.Point, snapped *justrouting.Waypoint) Rou
 	return out
 }
 
-// majorRoads collapses the per-leg road summaries into the ordered list of
+// roads collapses the per-leg road summaries into the ordered list of
 // main roads the route travels. Consecutive duplicates (adjacent legs on the
 // same road) are collapsed, but a road that recurs after leaving it is kept;
 // empty summaries and nil legs are dropped.
-func majorRoads(legs []*justrouting.Leg) []string {
+func roads(legs []*justrouting.Leg) []string {
 	out := make([]string, 0, len(legs))
 	var prev string
 	for _, leg := range legs {
@@ -280,4 +295,3 @@ func parsePoint(value string) (justrouting.Point, error) {
 
 	return point, nil
 }
-
