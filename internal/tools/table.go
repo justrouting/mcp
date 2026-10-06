@@ -13,10 +13,10 @@ type TableConfig struct {
 }
 
 type TableInput struct {
-	Coordinates  []string `json:"coordinates" jsonschema:"list of coordinates in longitude,latitude format, for example [\"103.8198,1.3521\", \"103.9915,1.3644\"]; at least 2 required; the position of each coordinate in this list is its index in the returned matrices"`
-	Profile      Profile  `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
-	Sources      []int    `json:"sources,omitempty" jsonschema:"optional subset of coordinates to use as matrix rows (sources), by index into the coordinates list; empty or omitted means all of them"`
-	Destinations []int    `json:"destinations,omitempty" jsonschema:"optional subset of coordinates to use as matrix columns (destinations), by index into the coordinates list; empty or omitted means all of them"`
+	Coordinates  []string     `json:"coordinates" jsonschema:"list of coordinates in longitude,latitude format, for example [\"103.8198,1.3521\", \"103.9915,1.3644\"]; at least 2 required; the position of each coordinate in this list is its index in the returned matrices"`
+	Profile      Profile      `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
+	Sources      []int        `json:"sources,omitempty" jsonschema:"optional subset of coordinates to use as matrix rows (sources), by index into the coordinates list; empty or omitted means all of them"`
+	Destinations []int        `json:"destinations,omitempty" jsonschema:"optional subset of coordinates to use as matrix columns (destinations), by index into the coordinates list; empty or omitted means all of them"`
 	Annotations  []Annotation `json:"annotations,omitempty" jsonschema:"which matrices to compute: \"duration\", \"distance\", or both; omit to get both"`
 }
 
@@ -235,4 +235,3 @@ func buildWaypoints(waypoints []*justrouting.Waypoint, indices []int) []TableWay
 	}
 	return out
 }
-

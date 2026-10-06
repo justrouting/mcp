@@ -19,10 +19,10 @@ type OptimizeInput struct {
 }
 
 type OptimizeVehicle struct {
-	ID      int    `json:"id" jsonschema:"unique vehicle identifier, for example 1"`
+	ID      int     `json:"id" jsonschema:"unique vehicle identifier, for example 1"`
 	Profile Profile `json:"profile,omitempty" jsonschema:"routing profile for this vehicle: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
-	Start   string `json:"start,omitempty" jsonschema:"vehicle start location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may start anywhere"`
-	End     string `json:"end,omitempty" jsonschema:"vehicle end location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may end anywhere"`
+	Start   string  `json:"start,omitempty" jsonschema:"vehicle start location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may start anywhere"`
+	End     string  `json:"end,omitempty" jsonschema:"vehicle end location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may end anywhere"`
 }
 
 type OptimizeJob struct {
@@ -49,14 +49,14 @@ type OptimizeSummary struct {
 }
 
 type OptimizeRoute struct {
-	Vehicle     int                  `json:"vehicle" jsonschema:"vehicle id serving this route"`
-	Cost        int                  `json:"cost" jsonschema:"route cost"`
-	Setup       int                  `json:"setup" jsonschema:"route setup time in seconds"`
-	Service     int                  `json:"service" jsonschema:"route on-site service time in seconds"`
-	Duration    int                  `json:"duration" jsonschema:"route duration in seconds"`
-	WaitingTime int                  `json:"waiting_time" jsonschema:"route waiting time in seconds"`
-	Priority    int                  `json:"priority" jsonschema:"route priority sum"`
-	Distance    int                  `json:"distance,omitempty" jsonschema:"route distance in meters"`
+	Vehicle     int            `json:"vehicle" jsonschema:"vehicle id serving this route"`
+	Cost        int            `json:"cost" jsonschema:"route cost"`
+	Setup       int            `json:"setup" jsonschema:"route setup time in seconds"`
+	Service     int            `json:"service" jsonschema:"route on-site service time in seconds"`
+	Duration    int            `json:"duration" jsonschema:"route duration in seconds"`
+	WaitingTime int            `json:"waiting_time" jsonschema:"route waiting time in seconds"`
+	Priority    int            `json:"priority" jsonschema:"route priority sum"`
+	Distance    int            `json:"distance,omitempty" jsonschema:"route distance in meters"`
 	Steps       []OptimizeStep `json:"steps" jsonschema:"stops in visiting order, from the vehicle's start to its end"`
 }
 
