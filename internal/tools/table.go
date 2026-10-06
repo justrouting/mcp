@@ -21,10 +21,10 @@ type TableInput struct {
 	Annotations  []string `json:"annotations,omitempty" jsonschema:"which matrices to compute: \"duration\", \"distance\", or both; omit to get both"`
 }
 
-// TableWaypointOutput describes one source or destination coordinate as the
+// TableWaypoint describes one source or destination coordinate as the
 // routing engine used it. Index ties it back to a position in the request's
 // coordinates list, so matrix rows and columns can be mapped to places.
-type TableWaypointOutput struct {
+type TableWaypoint struct {
 	Index    int               `json:"index"`
 	Name     string            `json:"name,omitempty"`
 	Location justrouting.Point `json:"location"`
@@ -32,12 +32,12 @@ type TableWaypointOutput struct {
 }
 
 type TableOutput struct {
-	Code         string                `json:"code"`
-	Message      string                `json:"message,omitempty"`
-	Durations    [][]*float64          `json:"durations,omitempty"`
-	Distances    [][]*float64          `json:"distances,omitempty"`
-	Sources      []TableWaypointOutput `json:"sources"`
-	Destinations []TableWaypointOutput `json:"destinations"`
+	Code         string          `json:"code"`
+	Message      string          `json:"message,omitempty"`
+	Durations    [][]*float64    `json:"durations,omitempty"`
+	Distances    [][]*float64    `json:"distances,omitempty"`
+	Sources      []TableWaypoint `json:"sources"`
+	Destinations []TableWaypoint `json:"destinations"`
 }
 
 func RegisterTableTool(
@@ -217,17 +217,17 @@ func effectiveIndices(sel []int, n int) []int {
 	return out
 }
 
-// buildWaypoints maps engine waypoints onto TableWaypointOutput, attaching
+// buildWaypoints maps engine waypoints onto TableWaypoint, attaching
 // the index each one had in the request's coordinates list. The mapping is
 // bounded defensively: a nil waypoint or a response longer than the
 // selection is truncated instead of causing a panic.
-func buildWaypoints(waypoints []*justrouting.Waypoint, indices []int) []TableWaypointOutput {
-	out := make([]TableWaypointOutput, 0, len(waypoints))
+func buildWaypoints(waypoints []*justrouting.Waypoint, indices []int) []TableWaypoint {
+	out := make([]TableWaypoint, 0, len(waypoints))
 	for i, w := range waypoints {
 		if w == nil || i >= len(indices) {
 			break
 		}
-		out = append(out, TableWaypointOutput{
+		out = append(out, TableWaypoint{
 			Index:    indices[i],
 			Name:     w.Name,
 			Location: w.Location,
