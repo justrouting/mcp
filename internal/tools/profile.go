@@ -24,7 +24,7 @@ const (
 // toolSchemaOptions make jsonschema-go render the enum types as JSON schema
 // string enums rather than plain strings, so LLM clients see the allowed
 // values. TypeSchemas propagate into nested struct fields, which is how
-// OptimizeVehicleInput.Profile (inside OptimizeInput.Vehicles) and the
+// OptimizeVehicle.Profile (inside OptimizeInput.Vehicles) and the
 // exclude and annotations lists' items get their enums.
 var toolSchemaOptions = &jsonschema.ForOptions{
 	TypeSchemas: map[reflect.Type]*jsonschema.Schema{
