@@ -7,51 +7,28 @@
 
 [![JustRouting MCP MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/justrouting/mcp/badges/card.svg)](https://glama.ai/mcp/servers/justrouting/mcp)
 
-MCP server for [JustRouting](https://justrouting.tech/), a Southeast Asia-focused routing API.
 
-Use JustRouting's road-routing capabilities from MCP-compatible AI assistants such as Claude and Cursor.
+> Routing, geocoding, distance matrices, and vehicle routing for AI assistants — focused on Southeast Asia.
 
-## Features
+JustRouting MCP lets MCP-compatible AI assistants such as Claude and Cursor use [JustRouting](https://justrouting.tech/) for road routing, geocoding, distance and travel-time comparison, and multi-vehicle route optimization.
 
-* Driving route calculation
-* Motorcycle routing profile
-* Driving distance
-* Estimated travel duration
-* Distance and duration matrix (table)
-* Address and place search (geocoding)
-* Route optimization (vehicle routing)
-* Southeast Asia-focused road coverage
-* MCP stdio transport
-* Built on the official JustRouting Go client
+Designed for Southeast Asia.
 
-## Requirements
+## Quick Start
 
-* A JustRouting API key
-* Go 1.25+ (only needed when installing from source)
+### 1. Install
 
-## Installation
-
-### One-line installer (macOS / Linux)
+#### macOS / Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/justrouting/mcp/main/install.sh | sh
 ```
 
-Downloads the latest prebuilt binary for your OS/architecture from [GitHub Releases](https://github.com/justrouting/mcp/releases), verifies its checksum, and installs it to `/usr/local/bin` (or `~/.local/bin`). No Go required.
+The installer downloads the latest prebuilt binary for your platform and installs `justrouting-mcp`.
 
-Pin a specific version:
+No Go installation is required.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/justrouting/mcp/main/install.sh | JUSTROUTING_MCP_VERSION=v0.1.1 sh
-```
-
-Uninstall: remove the `justrouting-mcp` binary from the directory it was installed to.
-
-### Manual download
-
-Prebuilt binaries for macOS, Linux, and Windows are attached to every [release](https://github.com/justrouting/mcp/releases). Download the archive for your platform, extract it, and put the binary on your `PATH`.
-
-### From source (Go users)
+#### From source
 
 ```bash
 go install github.com/justrouting/mcp/cmd/justrouting-mcp@latest
@@ -59,94 +36,65 @@ go install github.com/justrouting/mcp/cmd/justrouting-mcp@latest
 
 Make sure `justrouting-mcp` is available in your `PATH`.
 
-## Configuration
+### 2. Set your API key
 
-Set your JustRouting API key:
+Get an API key from [JustRouting](https://justrouting.tech/), then set:
 
 ```bash
-export JUSTROUTING_API_KEY="YOUR-API-KEY"
+export JUSTROUTING_API_KEY="your-api-key"
 ```
 
-## Tools
+### 3. Connect to Claude or Cursor
 
-### `route`
-
-Calculate a route between two locations, using the driving profile by default or the motorcycle profile when requested.
-
-Input:
+Add the following MCP server configuration:
 
 ```json
 {
-  "origin": "103.8198,1.3521",
-  "destination": "103.9915,1.3644",
-  "profile": "motorcycle",
-  "exclude": ["toll"]
-}
-```
-
-`profile` is optional. Set it to `"motorcycle"` for a motorcycle route; omit it for the default driving route. When the user mentions a motorcycle or motorbike, the assistant sets `profile` to `"motorcycle"`.
-
-`exclude` is optional. Pass the road classes to avoid, for example `["toll"]` when the user asks to avoid toll roads. Supported values are `"toll"`, `"motorway"` and `"ferry"`; the engine routes around them where a reasonable alternative exists.
-
-Coordinates must use:
-
-```text
-longitude,latitude
-```
-
-If the user asks about places by name or address instead of coordinates, call `geocode` first (see below) and pass its `coordinates` values here.
-
-Output:
-
-```json
-{
-  "distance_meters": 18500,
-  "duration_seconds": 1500,
-  "profile": "driving",
-  "origin": {
-    "input": "103.859,1.2834",
-    "snapped": [103.8588, 1.2831],
-    "name": "Bayfront Avenue",
-    "distance": 4.2
-  },
-  "destination": {
-    "input": "103.9915,1.3644",
-    "snapped": [103.9915, 1.3644],
-    "name": "Airport Boulevard",
-    "distance": 8.1
-  },
-  "geometry": "ka|`@_ceeEnAqB...",
-  "summary": {
-    "roads": ["East Coast Parkway"],
-    "tolls": false,
-    "ferry": false
+  "mcpServers": {
+    "justrouting": {
+      "command": "justrouting-mcp",
+      "env": {
+        "JUSTROUTING_API_KEY": "your-api-key"
+      }
+    }
   }
 }
 ```
 
-`distance_meters` is the driving distance in meters.
+The server communicates with MCP clients through `stdio`.
 
-`duration_seconds` is the estimated driving duration in seconds.
+## Tools
 
-`profile` echoes the routing profile that was used (`"driving"` or `"motorcycle"`).
+| Tool       | Purpose                                                      |
+| ---------- | ------------------------------------------------------------ |
+| `geocode`  | Place or address → coordinates                               |
+| `route`    | Calculate one route                                          |
+| `table`    | Compare travel times or distances between multiple locations |
+| `optimize` | Assign jobs to vehicles and order their stops                |
 
-`origin` and `destination` report each endpoint as the engine used it: the requested `input` coordinate, where it `snapped` to the nearest road, the `name` of that street (when known), and the snap `distance` in meters.
+The tools are intentionally separated by task:
 
-`geometry` is the route's shape as an encoded polyline (simplified overview), for rendering on a map.
+**route = calculate**
+**table = compare**
+**optimize = decide**
 
-`summary.roads` lists the main roads the route travels, in order. This gives the assistant the facts it needs to explain the route (for example: "about 18.5 km in 25 minutes, mainly using the East Coast Parkway").
+---
 
-`summary.tolls` and `summary.ferry` are true when the route passes through toll roads or includes a ferry crossing, so the assistant can mention costs or a ferry leg when describing the route.
+## `geocode`
 
-`exclude` echoes the road classes the route avoids, when any were requested.
+Search for a place or address and convert it into coordinates.
 
-### `geocode`
+Use it when the user provides:
 
-Search for places and convert a place name or address into coordinates. Use this before `route` when the user refers to places by name.
+* a place name
+* a landmark
+* a business
+* a street address
+* another location description
 
-The search is structured: the assistant parses the user's place reference into address components and passes only the ones it can determine — `name`, `housenumber`, `street`, `postcode`, `city`, `country`. Components with no data are omitted. Prefer including `country` (and `city`) when the context implies them — they are the strongest disambiguators for common, abbreviated, or misspelled names.
+Do not use it when the user already provides coordinates.
 
-Input:
+### Input
 
 ```json
 {
@@ -159,9 +107,22 @@ Input:
 }
 ```
 
-At least one component is required. `limit` is optional and defaults to 1 (best match only); it must not exceed 10. `filters` is also optional, for example `"filters": ["countrycode:sg"]` to restrict results to Singapore.
+The available fields are:
 
-Output:
+* `name` — place, landmark, or business name
+* `housenumber` — house or building number
+* `street` — street name
+* `postcode` — postal or ZIP code
+* `city` — city or locality
+* `country` — country
+* `limit` — maximum number of results, up to 10
+* `filters` — optional search filters
+
+Only provide fields that can be determined from the user's request. Do not invent missing address components.
+
+Country and city can be useful for disambiguating common or abbreviated place names.
+
+### Output
 
 ```json
 {
@@ -179,94 +140,421 @@ Output:
 }
 ```
 
-Results are ordered best first — always take the first result's `coordinates` (ready to pass to `route`, `table` or `optimize`). If nothing matches, the tool returns an error.
+Results are ordered by relevance.
 
-### `table`
+By default, the best matching result is returned. When multiple results are requested, choose the result that best matches the user's intended location.
 
-Calculate a matrix of driving durations and distances between many locations at once. Use it to compare several places — for example, to find which of several drivers is nearest to a customer.
+The `coordinates` value is in `longitude,latitude` format and can be passed directly to `route`, `table`, or `optimize`.
 
-Input:
+If geocoding is used as part of a routing workflow, verify that the selected result matches the intended place before using its coordinates.
+
+---
+
+## `route`
+
+Calculate a driving route between two locations.
+
+Use it when the user needs to:
+
+* calculate driving distance
+* estimate travel time
+* get a route between two locations
+* get route geometry
+* understand which roads a route uses
+* avoid specific road types
+
+### Input
+
+```json
+{
+  "origin": "103.8198,1.3521",
+  "destination": "103.9915,1.3644"
+}
+```
+
+Coordinates must use:
+
+```text
+longitude,latitude
+```
+
+For example:
+
+```text
+103.8198,1.3521
+```
+
+Optional motorcycle routing:
+
+```json
+{
+  "origin": "103.8198,1.3521",
+  "destination": "103.9915,1.3644",
+  "profile": "motorcycle"
+}
+```
+
+Use `profile: "motorcycle"` when the user explicitly asks for a motorcycle or motorbike route.
+
+Otherwise, omit `profile` to use the default driving profile.
+
+### Avoid roads
+
+Use `exclude` when the user explicitly asks to avoid a type of road.
+
+Supported values:
+
+* `toll`
+* `motorway`
+* `ferry`
+
+Example:
+
+```json
+{
+  "origin": "103.8198,1.3521",
+  "destination": "103.9915,1.3644",
+  "exclude": ["toll"]
+}
+```
+
+Road avoidance is a preference, not a guarantee. The routing engine avoids the specified road type when a reasonable alternative exists.
+
+### Output
+
+```json
+{
+  "distance_meters": 18500,
+  "duration_seconds": 1500,
+  "profile": "driving",
+  "origin": {
+    "input": "103.8198,1.3521",
+    "snapped": [103.8197, 1.3520],
+    "name": "Example Road",
+    "distance": 4.2
+  },
+  "destination": {
+    "input": "103.9915,1.3644",
+    "snapped": [103.9915, 1.3644],
+    "name": "Airport Boulevard",
+    "distance": 8.1
+  },
+  "geometry": "ka|`@_ceeEnAqB...",
+  "summary": {
+    "roads": ["East Coast Parkway"],
+    "tolls": false,
+    "ferry": false
+  }
+}
+```
+
+`distance_meters` is the route distance in meters.
+
+`duration_seconds` is the estimated travel duration in seconds.
+
+`geometry` is a simplified encoded polyline that can be used to render the route on a map.
+
+`summary.roads` lists the main roads used by the route.
+
+`summary.tolls` indicates whether the route uses toll roads.
+
+`summary.ferry` indicates whether the route includes a ferry crossing.
+
+If the user provides place names or addresses instead of coordinates, call `geocode` first.
+
+---
+
+## `table`
+
+Calculate a distance and/or travel-time matrix between multiple locations.
+
+Use it when the user needs to:
+
+* find the nearest driver, vehicle, store, or facility
+* compare several destinations
+* compare multiple origin-destination pairs
+* build a distance or travel-time matrix
+
+Do not use it for a single route between two locations. Use `route` instead.
+
+### Input
 
 ```json
 {
   "coordinates": [
     "103.8391,1.2771",
-    "103.859,1.2834",
+    "103.8590,1.2834",
     "103.7986,1.2885"
   ],
   "annotations": ["distance"]
 }
 ```
 
-`coordinates` is required and must hold at least two entries in `longitude,latitude` format (as returned by `geocode`). The position of each entry is its index: matrix rows and columns, and the `index` field of every source/destination in the output, refer back to it. Pass the places in a fixed order — for a nearest-driver question, put the customer first and the drivers after, then read the first row.
+Each coordinate has a stable zero-based index based on its position in the `coordinates` list.
 
-`sources` and `destinations` optionally restrict the matrix to subsets of the coordinates by index (empty or omitted means all of them). `annotations` optionally selects `"duration"`, `"distance"`, or both (default both). `profile` works exactly as in `route` — set `"motorcycle"` when the user mentions a motorcycle or motorbike, otherwise omit it for driving.
+Matrix rows correspond to **sources**.
 
-Output:
+Matrix columns correspond to **destinations**.
+
+A matrix value at:
+
+```text
+[row][column]
+```
+
+represents the route from that source to that destination.
+
+For example:
+
+```text
+durations[0][2]
+```
+
+is the travel time from source index `0` to destination index `2`.
+
+The `sources` and `destinations` returned by the tool contain the original coordinate indices so the matrix can be mapped back to the user's locations.
+
+### Nearest-driver example
+
+For a question such as:
+
+> Which driver is closest to this customer?
+
+Put the customer first:
+
+```text
+coordinates[0] = customer
+coordinates[1] = driver A
+coordinates[2] = driver B
+coordinates[3] = driver C
+```
+
+Then use the customer as the source and the drivers as destinations.
+
+Read the corresponding matrix row and choose the smallest non-null distance or duration.
+
+### Selecting sources and destinations
+
+`source` and `destinations` can restrict the matrix to specific coordinate indices.
+
+For example:
+
+```json
+{
+  "coordinates": [
+    "103.8391,1.2771",
+    "103.8590,1.2834",
+    "103.7986,1.2885"
+  ],
+  "sources": [0],
+  "destinations": [1, 2]
+}
+```
+
+This calculates routes from coordinate `0` to coordinates `1` and `2`.
+
+### Annotations
+
+Use:
+
+```json
+"annotations": ["duration"]
+```
+
+for travel times.
+
+Use:
+
+```json
+"annotations": ["distance"]
+```
+
+for distances.
+
+Use:
+
+```json
+"annotations": ["duration", "distance"]
+```
+
+for both.
+
+If omitted, both are returned.
+
+### Output
 
 ```json
 {
   "code": "Ok",
-  "durations": [[0, 1860, null], [1850, 0, 2100], [null, 2110, 0]],
-  "distances": [[0, 14200, null], [14100, 0, 18400], [null, 18200, 0]],
+  "durations": [
+    [0, 1860, null],
+    [1850, 0, 2100],
+    [null, 2110, 0]
+  ],
+  "distances": [
+    [0, 14200, null],
+    [14100, 0, 18400],
+    [null, 18200, 0]
+  ],
   "sources": [
-    {"index": 0, "name": "Duxton Road", "location": [103.8391, 1.2771], "distance": 12.3},
-    {"index": 1, "name": "Bayfront Avenue", "location": [103.859, 1.2834], "distance": 8.4},
-    {"index": 2, "name": "Alexandra Road", "location": [103.7986, 1.2885], "distance": 6.1}
+    {
+      "index": 0,
+      "name": "Duxton Road",
+      "location": [103.8391, 1.2771],
+      "distance": 12.3
+    }
   ],
   "destinations": [
-    {"index": 0, "name": "Duxton Road", "location": [103.8391, 1.2771], "distance": 12.3},
-    {"index": 1, "name": "Bayfront Avenue", "location": [103.859, 1.2834], "distance": 8.4},
-    {"index": 2, "name": "Alexandra Road", "location": [103.7986, 1.2885], "distance": 6.1}
+    {
+      "index": 1,
+      "name": "Bayfront Avenue",
+      "location": [103.8590, 1.2834],
+      "distance": 8.4
+    }
   ]
 }
 ```
 
-`durations` is in seconds and `distances` in meters, each indexed `[source][destination]`. A `null` entry means the engine could not connect that pair — it is not zero. Every source and destination object carries an `index` back to the input `coordinates` list.
+`durations` are in seconds.
 
-### `optimize`
+`distances` are in meters.
 
-Assign jobs to vehicles and order each vehicle's stops (vehicle routing). Use it for delivery or visit planning — for example, two vans picking up parcels from customers.
+A matrix value of `null` means that the origin-destination pair is unreachable. Never interpret `null` as zero.
 
-The assistant geocodes every place first — always taking each call's first (best) result — then builds the request. For a prompt such as "I have two vans, V1 at 'garlick ville singapore' and V2 at 'victoria place singapore'; pick up parcels from 6 customers at 'original sin', 'henry park primary school', 'astrid meadows tennis court', 'little oaks montessori kindergarten', 'eden hall' and 'villa chancery'", the assistant geocodes all 8 places and calls:
+---
 
-Input:
+## `optimize`
+
+Assign jobs to vehicles and determine the order in which each vehicle should visit its assigned jobs.
+
+Use it when the user needs to:
+
+* assign multiple deliveries or pickups to vehicles
+* plan routes for a fleet
+* determine the order of multiple stops
+* optimize a multi-vehicle routing solution
+
+Do not use it for a single route. Use `route`.
+
+Do not use it only to compare distances between locations. Use `table`.
+
+### Input
 
 ```json
 {
   "vehicles": [
-    {"id": 1, "start": "103.79234106,1.32463108", "end": "103.79234106,1.32463108"},
-    {"id": 2, "start": "103.82324228,1.32408622", "end": "103.82324228,1.32408622"}
+    {
+      "id": 1,
+      "start": "103.7923,1.3246",
+      "end": "103.7923,1.3246"
+    },
+    {
+      "id": 2,
+      "start": "103.8232,1.3241",
+      "end": "103.8232,1.3241"
+    }
   ],
   "jobs": [
-    {"id": 1, "location": "103.79751693,1.31035001"},
-    {"id": 2, "location": "103.78432387,1.31490148"},
-    {"id": 3, "location": "103.79763397,1.31980519"},
-    {"id": 4, "location": "103.81234512,1.31824846"},
-    {"id": 5, "location": "103.82152987,1.30984208"},
-    {"id": 6, "location": "103.83701939,1.32143977"}
+    {
+      "id": 1,
+      "location": "103.7975,1.3104"
+    },
+    {
+      "id": 2,
+      "location": "103.7843,1.3149"
+    },
+    {
+      "id": 3,
+      "location": "103.7976,1.3198"
+    }
   ]
 }
 ```
 
-At least one vehicle and one job are required, with unique ids. Coordinates are `longitude,latitude` strings (as returned by `geocode`). Set a vehicle's `start` and `end` both to its current location for a round trip, or omit them (or pass `""`) when the vehicle may start or end anywhere. `profile` works per vehicle exactly as in `route` — set `"motorcycle"` when the user mentions a motorcycle or motorbike, otherwise omit it for driving.
+Each vehicle must have at least a `start` or an `end`.
 
-Output (vehicle 2's route and some fields omitted for brevity):
+For a round trip, set both to the same location:
 
 ```json
 {
-  "summary": {"cost": 2733, "routes": 2, "unassigned": 0, "duration": 2733},
+  "id": 1,
+  "start": "103.7923,1.3246",
+  "end": "103.7923,1.3246"
+}
+```
+
+If `start` or `end` is omitted, the vehicle may start or end anywhere.
+
+Each vehicle and job must have a unique `id`.
+
+Locations must use:
+
+```text
+longitude,latitude
+```
+
+### Vehicle profiles
+
+Each vehicle can use its own routing profile.
+
+For example:
+
+```json
+{
+  "id": 1,
+  "profile": "motorcycle",
+  "start": "103.7923,1.3246",
+  "end": "103.7923,1.3246"
+}
+```
+
+Use `"motorcycle"` when the user explicitly asks for a motorcycle or motorbike route.
+
+Otherwise, omit `profile` to use the default driving profile.
+
+### Output
+
+A simplified result looks like:
+
+```json
+{
+  "summary": {
+    "cost": 2733,
+    "routes": 2,
+    "unassigned": 0,
+    "duration": 2733
+  },
   "routes": [
     {
       "vehicle": 1,
       "cost": 1144,
       "duration": 1144,
       "steps": [
-        {"type": "start", "location": [103.79234106, 1.32463108], "arrival": 0},
-        {"type": "job", "job": 2, "location": [103.78432387, 1.31490148], "arrival": 269, "duration": 269},
-        {"type": "job", "job": 1, "location": [103.79751693, 1.31035001], "arrival": 673, "duration": 673},
-        {"type": "job", "job": 3, "location": [103.79763397, 1.31980519], "arrival": 922, "duration": 922},
-        {"type": "end", "location": [103.79234106, 1.32463108], "arrival": 1144, "duration": 1144}
+        {
+          "type": "start",
+          "location": [103.7923, 1.3246],
+          "arrival": 0
+        },
+        {
+          "type": "job",
+          "job": 2,
+          "location": [103.7843, 1.3149],
+          "arrival": 269,
+          "duration": 269
+        },
+        {
+          "type": "job",
+          "job": 1,
+          "location": [103.7975, 1.3104],
+          "arrival": 673,
+          "duration": 673
+        },
+        {
+          "type": "end",
+          "location": [103.7923, 1.3246],
+          "arrival": 1144,
+          "duration": 1144
+        }
       ]
     }
   ],
@@ -274,23 +562,111 @@ Output (vehicle 2's route and some fields omitted for brevity):
 }
 ```
 
-Read each route's `steps` in order: `"job"` steps carry the job id plus the arrival time and travel duration in seconds, so they tell which vehicle serves which jobs and when. `unassigned` lists the jobs no vehicle could serve. `summary` aggregates cost, duration and distance across all routes.
+Read each route's `steps` in order to determine:
 
-### Asking about places by name
+* which vehicle serves each job
+* the order in which jobs are visited
+* when each job is reached
 
-For a prompt such as "how long from 'marina bay singapore' driving to 'changqi airport'?", the assistant geocodes each place and then routes:
+Always check `unassigned`.
 
-1. `geocode` with `"name": "marina bay", "country": "singapore"` → take the first result's `coordinates`
-2. `geocode` with `"name": "changqi airport"` → take the first result's `coordinates`
-3. `route` with the two `coordinates` values as `origin` and `destination` (omit `profile` for driving)
+Do not assume that every job can be assigned to a vehicle.
 
-For a comparison such as "which of these 4 drivers is nearest to the customer?", geocode the customer and every driver, take each call's first result, pass all `coordinates` values to `table` in a fixed order — customer first — and read the first row of the returned matrices.
+If the user provides place names or addresses instead of coordinates, call `geocode` first for every location and use the selected coordinates in the optimization request.
 
-For a multi-vehicle plan such as "two vans, six customers to pick up from", geocode the vans' locations and every customer, take each call's first result, then call `optimize` with one vehicle entry per van (start and end set to its location) and one job entry per customer. Read the `routes[].steps` in order to see which van serves which customers.
+---
+
+## Agent Workflows
+
+JustRouting MCP is designed so that AI assistants can combine the tools into larger workflows.
+
+### Route between two places
+
+For:
+
+> How long does it take to drive from Marina Bay Sands to Changi Airport?
+
+The workflow is:
+
+```text
+geocode → geocode → route
+```
+
+1. Geocode the origin.
+2. Geocode the destination.
+3. Pass the resulting coordinates to `route`.
+
+If the user already provides coordinates, skip geocoding.
+
+### Find the nearest driver
+
+For:
+
+> Which driver is closest to the customer?
+
+The workflow is:
+
+```text
+geocode × N → table
+```
+
+1. Geocode the customer.
+2. Geocode each driver.
+3. Keep the locations in a fixed order.
+4. Use the customer as the source.
+5. Use the drivers as destinations.
+6. Compare the returned distances or durations.
+
+### Plan multiple vehicles
+
+For:
+
+> I have two vans and six customers. Assign the customers to the vans and determine the stop order.
+
+The workflow is:
+
+```text
+geocode × N → optimize
+```
+
+1. Geocode each vehicle's start/end location.
+2. Geocode every job location.
+3. Create one vehicle entry per vehicle.
+4. Create one job entry per customer.
+5. Call `optimize`.
+6. Read `routes[].steps` to determine each vehicle's itinerary.
+7. Check `unassigned` for jobs that could not be served.
+
+---
+
+## Coordinate Format
+
+All routing tools use:
+
+```text
+longitude,latitude
+```
+
+For example:
+
+```text
+103.8198,1.3521
+```
+
+This is:
+
+```text
+longitude = 103.8198
+latitude  = 1.3521
+```
+
+Do not reverse the order.
+
+---
 
 ## Claude
 
-Configure the MCP server:
+Add JustRouting MCP to your Claude MCP configuration:
 
 ```json
 {
@@ -304,10 +680,14 @@ Configure the MCP server:
   }
 }
 ```
+
+Once connected, Claude can use the JustRouting tools directly.
+
+---
 
 ## Cursor
 
-Add the following MCP server configuration:
+Add JustRouting MCP to your Cursor MCP configuration:
 
 ```json
 {
@@ -321,6 +701,24 @@ Add the following MCP server configuration:
   }
 }
 ```
+
+Once connected, Cursor can use the JustRouting tools directly.
+
+---
+
+## Requirements
+
+For prebuilt binaries:
+
+* A JustRouting API key
+
+For installation from source:
+
+* Go 1.25+
+
+The MCP server currently uses `stdio` transport.
+
+---
 
 ## Development
 
@@ -355,58 +753,72 @@ Run:
 JUSTROUTING_API_KEY="YOUR-API-KEY" ./justrouting-mcp
 ```
 
-The server communicates with MCP clients through stdin/stdout.
-
-## Releasing
-
-Tag and push — GitHub Actions builds the binaries and publishes the release:
-
-```bash
-git tag v0.1.1
-git push origin v0.1.1
-```
-
-The `install.sh` script always installs the latest release, so it never needs to be updated when a new version ships.
+---
 
 ## Architecture
 
 ```text
-┌──────────────────────┐
-│   MCP Client         │
-│ Claude / Cursor / AI │
-└──────────┬───────────┘
-           │
-           │ MCP / stdio
-           ▼
-┌──────────────────────┐
-│  justrouting-mcp     │
-│                      │
-│  geocode tool        │
-│  route tool          │
-│  table tool          │
-│  optimize tool       │
-└──────────┬───────────┘
-           │
-           │ Go Client
-           ▼
-┌──────────────────────┐
-│ api.justrouting.tech │
-└──────────────────────┘
+┌─────────────────────────────┐
+│      MCP Client             │
+│   Claude / Cursor / AI      │
+└──────────────┬──────────────┘
+               │
+               │ MCP / stdio
+               ▼
+┌─────────────────────────────┐
+│       justrouting-mcp       │
+│                             │
+│  geocode   route            │
+│  table     optimize         │
+└──────────────┬──────────────┘
+               │
+               │ Official Go Client
+               ▼
+┌─────────────────────────────┐
+│    api.justrouting.tech     │
+└─────────────────────────────┘
 ```
 
 The MCP server is intentionally thin.
 
-Routing logic, API authentication, HTTP transport, retries, and API error handling are provided by the official JustRouting Go client.
+It exposes JustRouting capabilities through MCP and uses the official [JustRouting Go client](https://github.com/justrouting/go-client) for API communication.
+
+---
+
+## Releases
+
+Prebuilt binaries are published through [GitHub Releases](https://github.com/justrouting/mcp/releases).
+
+To create a release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+GitHub Actions builds the binaries and publishes the release.
+
+The one-line installer always installs the latest release.
+
+---
 
 ## Roadmap
 
-* [x] Route geometry
-* [ ] Alternative routes
-* [ ] Waypoints
-* [x] Distance matrix
-* [x] Route optimization
-* [ ] Streamable HTTP
-* [ ] Remote MCP deployment
+The core routing capabilities are already available:
+
+* Route calculation
+* Geocoding
+* Distance and travel-time matrix
+* Vehicle routing optimization
+
+Future improvements may include:
+
+* Alternative routes
+* Waypoints
+* Streamable HTTP transport
+* Remote MCP deployment
+
+---
 
 ## License
 
