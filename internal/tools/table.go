@@ -52,41 +52,59 @@ func RegisterTableTool(
 			Name:        "table",
 			InputSchema: mustSchema[TableInput]("table input schema"),
 			Description: `
-Calculate a matrix of travel durations and distances between many locations using JustRouting.
+Calculate a travel-time and/or distance matrix between multiple locations using JustRouting.
 
-Coordinates must use longitude,latitude format, one string per place.
-For example: ["103.8198,1.3521", "103.9915,1.3644"]
+Use this tool when the user needs to compare travel times or distances between
+multiple origins and destinations, such as:
+- finding the nearest driver, vehicle, store, or facility
+- comparing which destination is closest to an origin
+- comparing multiple origin-destination pairs
+- building a distance or travel-time matrix for several locations
 
-If the user gives place names or addresses instead of coordinates, do not
-guess coordinates. Call the geocode tool first to look up every place, then
-pass each geocode call's first (best) result "coordinates" value to this
-tool. Keep the places in a
-fixed order: each position in your coordinates list is an index, the rows
-and columns of the returned matrices are numbered by these indices, and
-every source/destination object in the result carries an "index" field
-pointing back to that position.
+Do not use this tool for:
+- a single route between two locations; use the route tool
+- assigning jobs to vehicles or determining the order of multiple stops; use the optimize tool
 
-Use this tool when comparing several places at once, for example picking
-the nearest of several drivers: put the customer first and the drivers
-after, then read the first row (or column) of the returned matrices.
+Coordinates:
+- Each coordinate must be in longitude,latitude format.
+- For example: ["103.8198,1.3521", "103.9915,1.3644"]
+- Each coordinate has a stable zero-based index based on its position in the
+  coordinates list.
+- Matrix rows correspond to sources and columns correspond to destinations.
+- A matrix value at [row][column] represents the route from that source to
+  that destination.
+- The sources and destinations in the result include their original
+  coordinate indices, so use these indices to map matrix rows and columns
+  back to the user's locations.
 
-For a single route between two places use the route tool; for assigning
-jobs to vehicles and ordering their stops use the optimize tool.
+If the user provides place names or addresses instead of coordinates, do not
+guess their coordinates. Call the geocode tool first for every place, then
+pass each place's best geocoded coordinates to this tool. Keep the same
+order as the user's locations so the matrix can be mapped back correctly.
 
-Returns "durations" in seconds and "distances" in meters, each indexed
-[source][destination]. A pair the engine cannot connect is reported as
-null and must not be read as zero.
+For example, if the user asks which driver is closest to a customer:
+- put the customer in the coordinates list
+- put the drivers after it
+- use the customer as the source and the drivers as destinations
+- read the corresponding row of the matrix and choose the smallest
+  non-null distance or duration
 
-Optional "sources" and "destinations" inputs restrict the matrix to
-subsets of the coordinates, by index into the coordinates list. Omit
-them to compute the full matrix between all coordinates.
+Unreachable origin-destination pairs are returned as null. Never interpret
+null as zero or as a valid route.
 
-Optional "annotations" input selects which matrices to compute:
-"duration", "distance", or both. Omit it to get both.
+Optional "sources" and "destinations" select subsets of the coordinates by
+zero-based index. Omit them to calculate the full matrix.
 
-Optional "profile" input selects the routing profile:
-- If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
-- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile to get the default driving route.
+Optional "annotations" controls which matrices are returned:
+- "duration" for travel times in seconds
+- "distance" for distances in meters
+- ["duration", "distance"] for both
+- omit it to return both
+
+Optional "profile" selects the routing profile:
+- Set profile to "motorcycle" when the user explicitly asks for a
+  motorcycle or motorbike route.
+- Otherwise, omit profile to use the default driving profile.
 			`,
 		},
 		func(
