@@ -239,7 +239,7 @@ func buildOptimizeRequest(input OptimizeInput) (*justrouting.OptimizationRequest
 // engine expects. The engine's default is "car" rather than "driving", so a
 // driving profile must be sent as "car" to preserve the engine default.
 func optimizeProfile(profile Profile) string {
-	if profile == ProfileMotorcycle {
+	if profile == MotorcycleProfile {
 		return "motorcycle"
 	}
 	return "car"

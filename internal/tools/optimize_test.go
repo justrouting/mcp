@@ -377,9 +377,9 @@ func TestOptimizeProfile(t *testing.T) {
 		profile Profile
 		want    string
 	}{
-		{ProfileDriving, "car"},
+		{DrivingProfile, "car"},
 		{"", "car"},
-		{ProfileMotorcycle, "motorcycle"},
+		{MotorcycleProfile, "motorcycle"},
 	}
 
 	for _, tt := range tests {

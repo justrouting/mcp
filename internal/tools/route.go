@@ -18,7 +18,7 @@ type RouteInput struct {
 	Origin      string   `json:"origin" jsonschema:"origin coordinates in longitude,latitude format"`
 	Destination string   `json:"destination" jsonschema:"destination coordinates in longitude,latitude format"`
 	Profile     Profile  `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
-	Exclude     []string `json:"exclude,omitempty" jsonschema:"road classes to avoid, for example [\"toll\"] when the user asks to avoid toll roads; supported values are \"toll\", \"motorway\", \"ferry\""`
+	Exclude     []Exclude `json:"exclude,omitempty" jsonschema:"road classes to avoid, for example [\"toll\"] when the user asks to avoid toll roads"`
 }
 
 type RouteOutput struct {
@@ -28,7 +28,7 @@ type RouteOutput struct {
 	Origin          RoutePointOutput   `json:"origin" jsonschema:"the origin as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
 	Destination     RoutePointOutput   `json:"destination" jsonschema:"the destination as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
 	Geometry        string             `json:"geometry,omitempty" jsonschema:"the route's shape as an encoded polyline (simplified overview); omitted when the engine returned none"`
-	Exclude         []string           `json:"exclude,omitempty" jsonschema:"the road classes the route avoids; omitted when none were requested"`
+	Exclude         []Exclude          `json:"exclude,omitempty" jsonschema:"the road classes the route avoids; omitted when none were requested"`
 	Summary         RouteSummaryOutput `json:"summary" jsonschema:"high-level description of the route"`
 }
 
@@ -119,7 +119,7 @@ func getRoute(
 			Origin:      origin,
 			Destination: destination,
 			Profile:     string(profile),
-			Exclude:     exclude,
+			Exclude:     excludeStrings(exclude),
 			// Steps is the only way the engine reports intersection road
 			// classes and leg summaries: the classes feed the summary
 			// tolls/ferry booleans and the summaries fill major_roads
@@ -281,29 +281,3 @@ func parsePoint(value string) (justrouting.Point, error) {
 	return point, nil
 }
 
-// normalizeExclude validates and normalizes the road classes to avoid.
-// Supported values are the standard OSRM car-profile classes: "toll",
-// "motorway" and "ferry". Each value is trimmed and lowercased; duplicates
-// are dropped. Unknown values are rejected so unsupported classes fail fast
-// with a clear error instead of reaching the engine. An empty input returns
-// nil, which the client omits from the request.
-func normalizeExclude(exclude []string) ([]string, error) {
-	var out []string
-	seen := make(map[string]bool, len(exclude))
-	for _, class := range exclude {
-		class = strings.ToLower(strings.TrimSpace(class))
-		switch class {
-		case "toll", "motorway", "ferry":
-		default:
-			return nil, fmt.Errorf(
-				"unsupported road class %q: must be one of \"toll\", \"motorway\", \"ferry\"",
-				class,
-			)
-		}
-		if !seen[class] {
-			seen[class] = true
-			out = append(out, class)
-		}
-	}
-	return out, nil
-}

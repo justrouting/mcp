@@ -47,48 +47,6 @@ func TestParsePointInvalid(t *testing.T) {
 	}
 }
 
-func TestNormalizeExclude(t *testing.T) {
-	tests := []struct {
-		input []string
-		want  []string
-	}{
-		{nil, nil},
-		{[]string{}, nil},
-		{[]string{"toll"}, []string{"toll"}},
-		{[]string{"motorway", "ferry"}, []string{"motorway", "ferry"}},
-		{[]string{" Toll ", "MOTORWAY"}, []string{"toll", "motorway"}},
-		{[]string{"toll", "toll", "ferry"}, []string{"toll", "ferry"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(strings.Join(tt.input, ","), func(t *testing.T) {
-			got, err := normalizeExclude(tt.input)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if !slices.Equal(got, tt.want) {
-				t.Fatalf("unexpected exclude: got %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNormalizeExcludeInvalid(t *testing.T) {
-	tests := [][]string{
-		{"unpaved"},
-		{"toll", "highway"},
-		{""},
-	}
-
-	for _, input := range tests {
-		t.Run(strings.Join(input, ","), func(t *testing.T) {
-			if _, err := normalizeExclude(input); err == nil {
-				t.Fatalf("expected error for %v", input)
-			}
-		})
-	}
-}
-
 // routeFixture mirrors a real routing response: snapped waypoints, a
 // simplified polyline geometry, and one leg per consecutive waypoint pair.
 // (The polyline contains a literal backtick, so it is built by concatenation.)
@@ -218,7 +176,7 @@ func TestGetRouteQueryEncoding(t *testing.T) {
 		wantQuery   map[string]string
 		wantAbsent  []string
 		wantProfile Profile
-		wantExclude []string
+		wantExclude []Exclude
 	}{
 		{
 			name:        "defaults request steps and the polyline simplified overview",
@@ -244,11 +202,11 @@ func TestGetRouteQueryEncoding(t *testing.T) {
 		},
 		{
 			name:        "excluded classes are sent comma-joined and echoed",
-			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []string{"toll", "motorway"}},
+			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []Exclude{"toll", "motorway"}},
 			wantPath:    "/route/v1/driving/103.8198,1.3521;103.9915,1.3644",
 			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified", "steps": "true", "exclude": "toll,motorway"},
 			wantProfile: "driving",
-			wantExclude: []string{"toll", "motorway"},
+			wantExclude: []Exclude{"toll", "motorway"},
 		},
 	}
 
@@ -422,7 +380,7 @@ func TestGetRouteInputValidation(t *testing.T) {
 		},
 		{
 			name:    "unsupported exclude class",
-			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []string{"unpaved"}},
+			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []Exclude{"unpaved"}},
 			wantErr: "invalid exclude",
 		},
 	}

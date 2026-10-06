@@ -14,30 +14,34 @@ import (
 type Profile string
 
 const (
-	// ProfileDriving is the default driving profile, used when the profile
+	// DrivingProfile is the default driving profile, used when the profile
 	// input is omitted.
-	ProfileDriving Profile = "driving"
-	// ProfileMotorcycle is the motorcycle profile.
-	ProfileMotorcycle Profile = "motorcycle"
+	DrivingProfile Profile = "driving"
+	// MotorcycleProfile is the motorcycle profile.
+	MotorcycleProfile Profile = "motorcycle"
 )
 
-// profileSchemaOptions make jsonschema-go render Profile fields as a JSON
-// schema string enum rather than a plain string, so LLM clients see the two
-// allowed values. TypeSchemas propagate into nested struct fields, which is
-// how OptimizeVehicleInput.Profile (inside OptimizeInput.Vehicles) gets the
-// same enum.
-var profileSchemaOptions = &jsonschema.ForOptions{
+// toolSchemaOptions make jsonschema-go render the enum types as JSON schema
+// string enums rather than plain strings, so LLM clients see the allowed
+// values. TypeSchemas propagate into nested struct fields, which is how
+// OptimizeVehicleInput.Profile (inside OptimizeInput.Vehicles) and the
+// exclude list's items get their enums.
+var toolSchemaOptions = &jsonschema.ForOptions{
 	TypeSchemas: map[reflect.Type]*jsonschema.Schema{
 		reflect.TypeFor[Profile](): {
 			Type: "string",
-			Enum: []any{ProfileDriving, ProfileMotorcycle},
+			Enum: []any{DrivingProfile, MotorcycleProfile},
+		},
+		reflect.TypeFor[Exclude](): {
+			Type: "string",
+			Enum: []any{ExcludeToll, ExcludeMotorway, ExcludeFerry},
 		},
 	},
 }
 
-// schemaFor derives the JSON schema for T with the Profile enum wired in.
+// schemaFor derives the JSON schema for T with the enum types wired in.
 func schemaFor[T any]() (any, error) {
-	schema, err := jsonschema.For[T](profileSchemaOptions)
+	schema, err := jsonschema.For[T](toolSchemaOptions)
 	if err != nil {
 		return nil, fmt.Errorf("derive JSON schema: %w", err)
 	}
@@ -63,10 +67,10 @@ func mustSchema[T any](what string) any {
 // returning a driving route.
 func normalizeProfile(profile Profile) (Profile, error) {
 	switch Profile(strings.ToLower(strings.TrimSpace(string(profile)))) {
-	case "", ProfileDriving:
-		return ProfileDriving, nil
-	case ProfileMotorcycle:
-		return ProfileMotorcycle, nil
+	case "", DrivingProfile:
+		return DrivingProfile, nil
+	case MotorcycleProfile:
+		return MotorcycleProfile, nil
 	default:
 		return "", fmt.Errorf(
 			"unsupported profile %q: must be one of \"driving\", \"motorcycle\"",

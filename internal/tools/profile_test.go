@@ -14,13 +14,13 @@ func TestNormalizeProfile(t *testing.T) {
 		input Profile
 		want  Profile
 	}{
-		{"", ProfileDriving},
-		{"driving", ProfileDriving},
-		{"DRIVING", ProfileDriving},
-		{" Driving ", ProfileDriving},
-		{"motorcycle", ProfileMotorcycle},
-		{"MOTORCYCLE", ProfileMotorcycle},
-		{" Motorcycle ", ProfileMotorcycle},
+		{"", DrivingProfile},
+		{"driving", DrivingProfile},
+		{"DRIVING", DrivingProfile},
+		{" Driving ", DrivingProfile},
+		{"motorcycle", MotorcycleProfile},
+		{"MOTORCYCLE", MotorcycleProfile},
+		{" Motorcycle ", MotorcycleProfile},
 	}
 
 	for _, tt := range tests {
@@ -60,7 +60,7 @@ func TestNormalizeProfileInvalid(t *testing.T) {
 // input schemas, including the nested optimize vehicles[].profile. Note the
 // Enum values are typed Profile constants here (no JSON round trip yet).
 func TestProfileEnumInToolSchemas(t *testing.T) {
-	want := []any{ProfileDriving, ProfileMotorcycle}
+	want := []any{DrivingProfile, MotorcycleProfile}
 
 	routeSchema, err := schemaFor[RouteInput]()
 	if err != nil {
@@ -88,12 +88,12 @@ func TestProfileEnumInToolSchemas(t *testing.T) {
 	}
 }
 
-// TestRegisteredToolsExposeProfileEnum is the acceptance test: it registers
+// TestRegisteredToolsExposeEnums is the acceptance test: it registers
 // the real tools, round-trips tools/list over an in-memory MCP connection
-// (exactly what an LLM client sees), and checks the enum plus the strict
-// rejection of the dropped "car" synonym. Registration only builds a client;
-// no request ever reaches the network.
-func TestRegisteredToolsExposeProfileEnum(t *testing.T) {
+// (exactly what an LLM client sees), and checks the profile and exclude
+// enums plus the strict rejection of values outside them. Registration only
+// builds a client; no request ever reaches the network.
+func TestRegisteredToolsExposeEnums(t *testing.T) {
 	ctx := context.Background()
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0"}, nil)
@@ -135,6 +135,12 @@ func TestRegisteredToolsExposeProfileEnum(t *testing.T) {
 		t.Errorf("optimize inputSchema.properties.vehicles.items.properties.profile.enum = %v, want %v", got, want)
 	}
 
+	wantExclude := []any{"toll", "motorway", "ferry"}
+	exclude := schemas["route"]["properties"].(map[string]any)["exclude"].(map[string]any)
+	if got := exclude["items"].(map[string]any)["enum"]; !reflect.DeepEqual(got, wantExclude) {
+		t.Errorf("route inputSchema.properties.exclude.items.enum = %v, want %v", got, wantExclude)
+	}
+
 	// The SDK validates arguments against the enum before the handler runs,
 	// so the dropped "car" synonym is rejected without any HTTP request.
 	call, err := session.CallTool(ctx, &mcp.CallToolParams{
@@ -150,5 +156,22 @@ func TestRegisteredToolsExposeProfileEnum(t *testing.T) {
 	}
 	if !call.IsError {
 		t.Error(`expected profile "car" to be rejected by schema validation`)
+	}
+
+	// An unsupported road class is likewise rejected by the exclude items
+	// enum before the handler runs.
+	call, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "route",
+		Arguments: map[string]any{
+			"origin":      "103.8198,1.3521",
+			"destination": "103.9915,1.3644",
+			"exclude":     []any{"unpaved"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("route call: %v", err)
+	}
+	if !call.IsError {
+		t.Error(`expected exclude "unpaved" to be rejected by schema validation`)
 	}
 }
