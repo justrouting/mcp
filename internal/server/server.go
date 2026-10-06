@@ -43,15 +43,25 @@ func New(cfg Config) (*Server, error) {
 		},
 		&mcp.ServerOptions{
 			Instructions: `
-JustRouting provides road routing, geocoding and fleet optimization across Southeast Asia.
+JustRouting provides road routing, geocoding, distance matrices, and fleet optimization across Southeast Asia.
 
-The route tool calculates a route between two locations: distance in meters, estimated travel duration in seconds, the route's polyline geometry, the main roads traveled, and whether the route uses toll roads or a ferry. Use it when the user asks for the distance, travel time or a route between two places. The default routing profile is driving; when the user's request mentions a motorcycle or motorbike, pass "motorcycle" as the route tool's profile input.
+Choose the simplest tool that matches the user's task:
+- geocode: find coordinates for a place or address
+- route: calculate one route between two locations
+- table: compare distances or travel times between multiple locations
+- optimize: assign multiple jobs to vehicles and determine their stop order
 
-The table tool computes a matrix of driving distances and durations between many coordinates at once. Use it when comparing several places (for example, finding the nearest of several drivers), and read the returned matrix by list position.
+Use geocode first when the user provides place names, landmarks, businesses, or addresses instead of coordinates. Do not guess coordinates. Verify that the selected geocoding result matches the user's intended location before using it for routing.
 
-The optimize tool solves vehicle routing problems: it assigns jobs to vehicles and orders each vehicle's stops. Use it when the user asks to plan deliveries or visits with one or more vehicles. Read the response's "routes" array: each route's "steps", in order, show which jobs that vehicle serves and when it arrives; "unassigned" lists the jobs no vehicle could serve.
+All routing tools use coordinates in longitude,latitude order.
 
-All three routing tools take coordinates as longitude,latitude. When the user asks about places by name or address, call the geocode tool first for every place and pass each call's first (best) result "coordinates" value to the routing tool: as "origin" and "destination" for route, as one ordered list for table, and as one vehicle entry per vehicle plus one job entry per task for optimize.
+Use route for a single origin-destination route. Use table when comparing multiple origin-destination pairs, such as finding the nearest driver, vehicle, store, or facility. Use optimize when the user needs multiple jobs assigned to vehicles and the order of stops determined.
+
+For motorcycle or motorbike requests, set the routing profile to "motorcycle". Otherwise, use the default driving profile.
+
+When combining tools, preserve the user's location order when constructing table or optimize requests, and map results back using the original coordinate or job indices.
+
+Always check for unreachable results in table and unassigned jobs in optimize. Do not assume that every requested route or job is successfully served.
 			`,
 			Logger: cfg.Logger,
 		},
