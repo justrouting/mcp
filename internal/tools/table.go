@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	justrouting "github.com/justrouting/go-client"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -14,17 +13,17 @@ type TableConfig struct {
 }
 
 type TableInput struct {
-	Coordinates  []string `json:"coordinates" jsonschema:"list of coordinates in longitude,latitude format, for example [\"103.8198,1.3521\", \"103.9915,1.3644\"]; at least 2 required; the position of each coordinate in this list is its index in the returned matrices"`
-	Profile      string   `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it or set it to \"car\" for the default driving profile"`
-	Sources      []int    `json:"sources,omitempty" jsonschema:"optional subset of coordinates to use as matrix rows (sources), by index into the coordinates list; empty or omitted means all of them"`
-	Destinations []int    `json:"destinations,omitempty" jsonschema:"optional subset of coordinates to use as matrix columns (destinations), by index into the coordinates list; empty or omitted means all of them"`
-	Annotations  []string `json:"annotations,omitempty" jsonschema:"which matrices to compute: \"duration\", \"distance\", or both; omit to get both"`
+	Coordinates  []string     `json:"coordinates" jsonschema:"list of coordinates in longitude,latitude format, for example [\"103.8198,1.3521\", \"103.9915,1.3644\"]; at least 2 required; the position of each coordinate in this list is its index in the returned matrices"`
+	Profile      Profile      `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
+	Sources      []int        `json:"sources,omitempty" jsonschema:"optional subset of coordinates to use as matrix rows (sources), by index into the coordinates list; empty or omitted means all of them"`
+	Destinations []int        `json:"destinations,omitempty" jsonschema:"optional subset of coordinates to use as matrix columns (destinations), by index into the coordinates list; empty or omitted means all of them"`
+	Annotations  []Annotation `json:"annotations,omitempty" jsonschema:"which matrices to compute: \"duration\", \"distance\", or both; omit to get both"`
 }
 
-// TableWaypointOutput describes one source or destination coordinate as the
+// TableWaypoint describes one source or destination coordinate as the
 // routing engine used it. Index ties it back to a position in the request's
 // coordinates list, so matrix rows and columns can be mapped to places.
-type TableWaypointOutput struct {
+type TableWaypoint struct {
 	Index    int               `json:"index"`
 	Name     string            `json:"name,omitempty"`
 	Location justrouting.Point `json:"location"`
@@ -32,12 +31,12 @@ type TableWaypointOutput struct {
 }
 
 type TableOutput struct {
-	Code         string                `json:"code"`
-	Message      string                `json:"message,omitempty"`
-	Durations    [][]*float64          `json:"durations,omitempty"`
-	Distances    [][]*float64          `json:"distances,omitempty"`
-	Sources      []TableWaypointOutput `json:"sources"`
-	Destinations []TableWaypointOutput `json:"destinations"`
+	Code         string          `json:"code"`
+	Message      string          `json:"message,omitempty"`
+	Durations    [][]*float64    `json:"durations,omitempty"`
+	Distances    [][]*float64    `json:"distances,omitempty"`
+	Sources      []TableWaypoint `json:"sources"`
+	Destinations []TableWaypoint `json:"destinations"`
 }
 
 func RegisterTableTool(
@@ -49,43 +48,62 @@ func RegisterTableTool(
 	mcp.AddTool(
 		server,
 		&mcp.Tool{
-			Name: "table",
+			Name:        "table",
+			InputSchema: mustSchema[TableInput]("table input schema"),
 			Description: `
-Calculate a matrix of travel durations and distances between many locations using JustRouting.
+Calculate a travel-time and/or distance matrix between multiple locations using JustRouting.
 
-Coordinates must use longitude,latitude format, one string per place.
-For example: ["103.8198,1.3521", "103.9915,1.3644"]
+Use this tool when the user needs to compare travel times or distances between
+multiple origins and destinations, such as:
+- finding the nearest driver, vehicle, store, or facility
+- comparing which destination is closest to an origin
+- comparing multiple origin-destination pairs
+- building a distance or travel-time matrix for several locations
 
-If the user gives place names or addresses instead of coordinates, do not
-guess coordinates. Call the geocode tool first to look up every place, then
-pass each geocode call's first (best) result "coordinates" value to this
-tool. Keep the places in a
-fixed order: each position in your coordinates list is an index, the rows
-and columns of the returned matrices are numbered by these indices, and
-every source/destination object in the result carries an "index" field
-pointing back to that position.
+Do not use this tool for:
+- a single route between two locations; use the route tool
+- assigning jobs to vehicles or determining the order of multiple stops; use the optimize tool
 
-Use this tool when comparing several places at once, for example picking
-the nearest of several drivers: put the customer first and the drivers
-after, then read the first row (or column) of the returned matrices.
+Coordinates:
+- Each coordinate must be in longitude,latitude format.
+- For example: ["103.8198,1.3521", "103.9915,1.3644"]
+- Each coordinate has a stable zero-based index based on its position in the
+  coordinates list.
+- Matrix rows correspond to sources and columns correspond to destinations.
+- A matrix value at [row][column] represents the route from that source to
+  that destination.
+- The sources and destinations in the result include their original
+  coordinate indices, so use these indices to map matrix rows and columns
+  back to the user's locations.
 
-For a single route between two places use the route tool; for assigning
-jobs to vehicles and ordering their stops use the optimize tool.
+If the user provides place names or addresses instead of coordinates, do not
+guess their coordinates. Call the geocode tool first for every place, then
+pass each place's best geocoded coordinates to this tool. Keep the same
+order as the user's locations so the matrix can be mapped back correctly.
 
-Returns "durations" in seconds and "distances" in meters, each indexed
-[source][destination]. A pair the engine cannot connect is reported as
-null and must not be read as zero.
+For example, if the user asks which driver is closest to a customer:
+- put the customer in the coordinates list
+- put the drivers after it
+- use the customer as the source and the drivers as destinations
+- read the corresponding row of the matrix and choose the smallest
+  non-null distance or duration
 
-Optional "sources" and "destinations" inputs restrict the matrix to
-subsets of the coordinates, by index into the coordinates list. Omit
-them to compute the full matrix between all coordinates.
+Unreachable origin-destination pairs are returned as null. Never interpret
+null as zero or as a valid route.
 
-Optional "annotations" input selects which matrices to compute:
-"duration", "distance", or both. Omit it to get both.
+Optional "sources" and "destinations" select subsets of the coordinates by
+zero-based index. Omit them to calculate the full matrix.
 
-Optional "profile" input selects the routing profile:
-- If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
-- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile or set it to "car" to get the default driving route.
+Optional "annotations" controls which matrices are returned:
+- "duration" for travel times in seconds
+- "distance" for distances in meters
+- ["duration", "distance"] for both
+- omit it to return both
+
+Optional "profile" selects the routing profile:
+- Set profile to "motorcycle" when the user explicitly asks for a
+  motorcycle or motorbike route.
+- Otherwise, omit profile to use the default driving profile.
 			`,
 		},
 		func(
@@ -146,8 +164,8 @@ func getTable(
 			Coordinates:  points,
 			Sources:      input.Sources,
 			Destinations: input.Destinations,
-			Annotations:  annotations,
-			Profile:      profile,
+			Annotations:  annotationStrings(annotations),
+			Profile:      string(profile),
 		},
 	)
 	if err != nil {
@@ -198,17 +216,17 @@ func effectiveIndices(sel []int, n int) []int {
 	return out
 }
 
-// buildWaypoints maps engine waypoints onto TableWaypointOutput, attaching
+// buildWaypoints maps engine waypoints onto TableWaypoint, attaching
 // the index each one had in the request's coordinates list. The mapping is
 // bounded defensively: a nil waypoint or a response longer than the
 // selection is truncated instead of causing a panic.
-func buildWaypoints(waypoints []*justrouting.Waypoint, indices []int) []TableWaypointOutput {
-	out := make([]TableWaypointOutput, 0, len(waypoints))
+func buildWaypoints(waypoints []*justrouting.Waypoint, indices []int) []TableWaypoint {
+	out := make([]TableWaypoint, 0, len(waypoints))
 	for i, w := range waypoints {
 		if w == nil || i >= len(indices) {
 			break
 		}
-		out = append(out, TableWaypointOutput{
+		out = append(out, TableWaypoint{
 			Index:    indices[i],
 			Name:     w.Name,
 			Location: w.Location,
@@ -216,30 +234,4 @@ func buildWaypoints(waypoints []*justrouting.Waypoint, indices []int) []TableWay
 		})
 	}
 	return out
-}
-
-// normalizeAnnotations validates and deduplicates matrix annotations.
-// Empty input returns nil so the client applies its default (both).
-func normalizeAnnotations(annotations []string) ([]string, error) {
-	if len(annotations) == 0 {
-		return nil, nil
-	}
-	out := make([]string, 0, len(annotations))
-	seen := make(map[string]bool, len(annotations))
-	for _, a := range annotations {
-		a = strings.ToLower(strings.TrimSpace(a))
-		switch a {
-		case "duration", "distance":
-		default:
-			return nil, fmt.Errorf(
-				"invalid annotation %q: must be \"duration\" or \"distance\"",
-				a,
-			)
-		}
-		if !seen[a] {
-			seen[a] = true
-			out = append(out, a)
-		}
-	}
-	return out, nil
 }

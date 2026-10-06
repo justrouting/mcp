@@ -28,7 +28,7 @@ type GeocodeInput struct {
 	Filters     []string `json:"filters,omitempty" jsonschema:"optional filters to restrict results, for example \"countrycode:sg\""`
 }
 
-type GeocodeResultOutput struct {
+type GeocodeResult struct {
 	Longitude   float64 `json:"longitude"`
 	Latitude    float64 `json:"latitude"`
 	Coordinates string  `json:"coordinates"`
@@ -39,7 +39,7 @@ type GeocodeResultOutput struct {
 }
 
 type GeocodeOutput struct {
-	Results []GeocodeResultOutput `json:"results"`
+	Results []GeocodeResult `json:"results"`
 }
 
 func RegisterGeocodeTool(
@@ -53,27 +53,48 @@ func RegisterGeocodeTool(
 		&mcp.Tool{
 			Name: "geocode",
 			Description: `
-Search for places and convert a place name or address into coordinates using JustRouting.
+Search for a place or address and convert it into coordinates using JustRouting.
 
-The search is structured: parse the user's place reference into address
-components and pass only the ones you can determine — name, housenumber,
-street, postcode, city, country. Omit any component the user did not give.
+Use this tool when the user provides a place name, landmark, business,
+street address, or other location description instead of coordinates.
+
+Do not use this tool when the user already provides coordinates in
+longitude,latitude format.
+
+Parse the user's location into the structured fields that can be determined:
+- "name": place, landmark, or business name
+- "housenumber": house or building number
+- "street": street name
+- "postcode": postal or ZIP code
+- "city": city or locality
+- "country": country
+
+Only provide fields that are known from the user's request. Do not invent or
+guess missing address components.
+
 For example, "Marina Bay Sands, 10 Bayfront Avenue, Singapore 018956"
-becomes name "Marina Bay Sands", housenumber "10", street "Bayfront
-Avenue", postcode "018956", city "Singapore", country "Singapore".
+can be represented as:
+- name: "Marina Bay Sands"
+- housenumber: "10"
+- street: "Bayfront Avenue"
+- postcode: "018956"
+- city: "Singapore"
+- country: "Singapore"
 
-Prefer passing country (and city) whenever the user's context implies them —
-they are the strongest disambiguators for common, abbreviated, or misspelled
-names.
+When the user's context provides a country or city, include it to disambiguate
+common, abbreviated, or misspelled place names.
 
-Returns a list of matching places, ordered by relevance. Each result includes
-longitude, latitude, and a ready-to-use "coordinates" string in longitude,latitude
-format that can be passed directly to the route, table or optimize tools.
+Results are ordered by relevance. Each result contains longitude, latitude,
+and a "coordinates" string in longitude,latitude format that can be passed
+directly to the route, table, or optimize tools.
 
-Use this tool first when the user refers to places by name or address
-(for example "marina bay singapore") and the task needs the route, table
-or optimize tool. Always take the coordinates of the first result — it is
-the best match.
+By default, only the best matching result is returned. If the location is
+ambiguous or the user asks for alternatives, request multiple results using
+"limit" and use the result that best matches the user's intended location.
+
+When using geocode as part of a route, table, or optimize workflow, verify
+that the selected result matches the user's intended place before passing
+its coordinates to the next tool.
 			`,
 		},
 		func(
@@ -153,9 +174,9 @@ func searchGeocode(
 		)
 	}
 
-	results := make([]GeocodeResultOutput, 0, len(resp.Results))
+	results := make([]GeocodeResult, 0, len(resp.Results))
 	for _, r := range resp.Results {
-		results = append(results, GeocodeResultOutput{
+		results = append(results, GeocodeResult{
 			Longitude:   r.Lon,
 			Latitude:    r.Lat,
 			Coordinates: r.Location().String(),

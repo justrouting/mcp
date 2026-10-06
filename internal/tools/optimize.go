@@ -14,29 +14,29 @@ type OptimizeConfig struct {
 }
 
 type OptimizeInput struct {
-	Vehicles []OptimizeVehicleInput `json:"vehicles" jsonschema:"the available fleet; at least 1 vehicle required; each vehicle needs a start or an end"`
-	Jobs     []OptimizeJobInput     `json:"jobs" jsonschema:"the tasks to assign; at least 1 job required"`
+	Vehicles []OptimizeVehicle `json:"vehicles" jsonschema:"the available fleet; at least 1 vehicle required; each vehicle needs a start or an end"`
+	Jobs     []OptimizeJob     `json:"jobs" jsonschema:"the tasks to assign; at least 1 job required"`
 }
 
-type OptimizeVehicleInput struct {
-	ID      int    `json:"id" jsonschema:"unique vehicle identifier, for example 1"`
-	Profile string `json:"profile,omitempty" jsonschema:"routing profile for this vehicle: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it or set it to \"car\" for the default driving profile"`
-	Start   string `json:"start,omitempty" jsonschema:"vehicle start location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may start anywhere"`
-	End     string `json:"end,omitempty" jsonschema:"vehicle end location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may end anywhere"`
+type OptimizeVehicle struct {
+	ID      int     `json:"id" jsonschema:"unique vehicle identifier, for example 1"`
+	Profile Profile `json:"profile,omitempty" jsonschema:"routing profile for this vehicle: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
+	Start   string  `json:"start,omitempty" jsonschema:"vehicle start location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may start anywhere"`
+	End     string  `json:"end,omitempty" jsonschema:"vehicle end location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may end anywhere"`
 }
 
-type OptimizeJobInput struct {
+type OptimizeJob struct {
 	ID       int    `json:"id" jsonschema:"unique job identifier, for example 1"`
 	Location string `json:"location" jsonschema:"job location in longitude,latitude format, for example \"103.8514,1.2897\""`
 }
 
 type OptimizeOutput struct {
-	Summary    OptimizeSummaryOutput      `json:"summary" jsonschema:"aggregate cost and time across all routes"`
-	Routes     []OptimizeRouteOutput      `json:"routes" jsonschema:"one itinerary per vehicle that was used"`
-	Unassigned []OptimizeUnassignedOutput `json:"unassigned" jsonschema:"jobs that no vehicle could serve"`
+	Summary    OptimizeSummary      `json:"summary" jsonschema:"aggregate cost and time across all routes"`
+	Routes     []OptimizeRoute      `json:"routes" jsonschema:"one itinerary per vehicle that was used"`
+	Unassigned []OptimizeUnassigned `json:"unassigned" jsonschema:"jobs that no vehicle could serve"`
 }
 
-type OptimizeSummaryOutput struct {
+type OptimizeSummary struct {
 	Cost        int `json:"cost" jsonschema:"total cost of the solution"`
 	Routes      int `json:"routes" jsonschema:"number of vehicles used"`
 	Unassigned  int `json:"unassigned" jsonschema:"number of jobs no vehicle could serve"`
@@ -48,19 +48,19 @@ type OptimizeSummaryOutput struct {
 	Distance    int `json:"distance,omitempty" jsonschema:"total distance in meters"`
 }
 
-type OptimizeRouteOutput struct {
-	Vehicle     int                  `json:"vehicle" jsonschema:"vehicle id serving this route"`
-	Cost        int                  `json:"cost" jsonschema:"route cost"`
-	Setup       int                  `json:"setup" jsonschema:"route setup time in seconds"`
-	Service     int                  `json:"service" jsonschema:"route on-site service time in seconds"`
-	Duration    int                  `json:"duration" jsonschema:"route duration in seconds"`
-	WaitingTime int                  `json:"waiting_time" jsonschema:"route waiting time in seconds"`
-	Priority    int                  `json:"priority" jsonschema:"route priority sum"`
-	Distance    int                  `json:"distance,omitempty" jsonschema:"route distance in meters"`
-	Steps       []OptimizeStepOutput `json:"steps" jsonschema:"stops in visiting order, from the vehicle's start to its end"`
+type OptimizeRoute struct {
+	Vehicle     int            `json:"vehicle" jsonschema:"vehicle id serving this route"`
+	Cost        int            `json:"cost" jsonschema:"route cost"`
+	Setup       int            `json:"setup" jsonschema:"route setup time in seconds"`
+	Service     int            `json:"service" jsonschema:"route on-site service time in seconds"`
+	Duration    int            `json:"duration" jsonschema:"route duration in seconds"`
+	WaitingTime int            `json:"waiting_time" jsonschema:"route waiting time in seconds"`
+	Priority    int            `json:"priority" jsonschema:"route priority sum"`
+	Distance    int            `json:"distance,omitempty" jsonschema:"route distance in meters"`
+	Steps       []OptimizeStep `json:"steps" jsonschema:"stops in visiting order, from the vehicle's start to its end"`
 }
 
-type OptimizeStepOutput struct {
+type OptimizeStep struct {
 	Type        string            `json:"type" jsonschema:"stop type: \"start\", \"job\", or \"end\""`
 	Location    justrouting.Point `json:"location,omitempty" jsonschema:"stop location as [longitude, latitude]"`
 	Job         int               `json:"job,omitempty" jsonschema:"job id, only on \"job\" steps"`
@@ -73,7 +73,7 @@ type OptimizeStepOutput struct {
 	Description string            `json:"description,omitempty" jsonschema:"label echoed from the request"`
 }
 
-type OptimizeUnassignedOutput struct {
+type OptimizeUnassigned struct {
 	ID          int               `json:"id" jsonschema:"id of the job that could not be served"`
 	Type        string            `json:"type,omitempty" jsonschema:"task type, always \"job\" for now"`
 	Location    justrouting.Point `json:"location,omitempty" jsonschema:"job location as [longitude, latitude]"`
@@ -89,39 +89,59 @@ func RegisterOptimizeTool(
 	mcp.AddTool(
 		server,
 		&mcp.Tool{
-			Name: "optimize",
+			Name:        "optimize",
+			InputSchema: mustSchema[OptimizeInput]("optimize input schema"),
 			Description: `
-Solve a vehicle routing problem using JustRouting: assign jobs to vehicles and order each vehicle's stops.
+Solve a vehicle routing problem using JustRouting: assign jobs to vehicles
+and determine the order in which each vehicle should visit its assigned jobs.
 
-Use this tool when the user asks to assign jobs to vehicles and order each
-vehicle's stops (deliveries, pickups, visits). For a single route between
-two places use the route tool; for comparing many places at once use the
-table tool.
+Use this tool when the user needs to:
+- assign multiple deliveries, pickups, or visits to one or more vehicles
+- determine the order in which each vehicle should visit its assigned jobs
+- plan routes for a fleet of vehicles
+- optimize the overall routing solution
 
-The input is a fleet of vehicles and a list of jobs:
-- Each vehicle has an "id", an optional "profile", and "start"/"end" locations in
-  longitude,latitude format. For a round trip (the vehicle returns to where it began),
-  set both start and end to the vehicle's current location. When a vehicle may start
-  or end anywhere, omit the field or pass an empty string.
-- Each job has an "id" and a "location" in longitude,latitude format.
+Do not use this tool for:
+- calculating a single route between two locations; use the route tool
+- comparing travel times or distances between multiple locations; use the table tool
 
-If the user gives place names or addresses instead of coordinates, do not
-guess coordinates. Call the geocode tool first for every place, then pass
-each geocode call's first (best) result "coordinates" value into this tool.
+The input consists of:
+- "vehicles": the available vehicles, each with a unique "id" and optional
+  start, end, and routing profile
+- "jobs": the locations that need to be served, each with a unique "id"
 
-Coordinates must use longitude,latitude format.
-For example: 103.8198,1.3521
+Locations:
+- All locations must use longitude,latitude format.
+- For example: "103.8198,1.3521"
+- A vehicle may have only a start, only an end, or both.
+- For a round trip, set both the vehicle's start and end to the same location.
+- If start or end is omitted, the vehicle may start or end anywhere.
+- Each vehicle must have at least a start or an end location.
 
-Optional per-vehicle "profile" input selects the routing profile:
-- If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
-- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile or set it to "car" to get the default driving profile.
+If the user provides place names or addresses instead of coordinates, do not
+guess their coordinates. Call the geocode tool first for every location, then
+pass each place's best geocoded coordinates to this tool.
 
-The response contains:
-- "routes": one itinerary per vehicle that was used. Read each route's "steps" in
-  order — "job" steps carry the "job" id plus "arrival" and "duration" — to tell
-  which vehicle serves which jobs and when.
-- "unassigned": the jobs no vehicle could serve.
-- "summary": aggregate cost, duration and distance across all routes.
+Vehicle profiles:
+- Each vehicle can use its own routing profile.
+- Set profile to "motorcycle" when the user explicitly asks for a motorcycle
+  or motorbike route.
+- Otherwise, omit profile to use the default driving profile.
+
+The result contains:
+- "routes": one itinerary for each vehicle used. Read each route's "steps"
+  in order to determine which jobs are assigned to that vehicle and the
+  order in which they are visited.
+- "unassigned": jobs that could not be served by any vehicle.
+- "summary": aggregate cost, duration, waiting time, and distance across
+  the solution.
+
+A "job" step contains the job id, arrival time, travel duration, and
+travel distance for reaching that job. Use these fields when explaining
+the planned schedule to the user.
+
+Do not assume that every job will be assigned. Always check "unassigned"
+and mention any jobs that could not be served.
 			`,
 		},
 		func(
@@ -176,12 +196,12 @@ func buildOptimizeRequest(input OptimizeInput) (*justrouting.OptimizationRequest
 		}
 		seenVehicles[v.ID] = true
 
-		profile, err := normalizeVehicleProfile(v.Profile)
+		profile, err := normalizeProfile(v.Profile)
 		if err != nil {
 			return nil, fmt.Errorf("invalid vehicles[%d].profile: %w", i, err)
 		}
 
-		vehicles[i] = justrouting.Vehicle{ID: v.ID, Profile: profile}
+		vehicles[i] = justrouting.Vehicle{ID: v.ID, Profile: optimizeProfile(profile)}
 
 		// An empty start/end means the vehicle may start or end anywhere:
 		// leave the point nil so the field is omitted from the request
@@ -234,23 +254,14 @@ func buildOptimizeRequest(input OptimizeInput) (*justrouting.OptimizationRequest
 	}, nil
 }
 
-// normalizeVehicleProfile maps user-facing profile names to the optimization
-// engine's profiles, which differ from the route/table API: an empty profile
-// (field omitted) and car synonyms map to "car", the engine's default.
-// Motorcycle synonyms map to "motorcycle". Any other value is rejected so
-// unsupported profiles fail fast with a clear error.
-func normalizeVehicleProfile(profile string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(profile)) {
-	case "", "car", "driving":
-		return "car", nil
-	case "motorcycle", "motorbike":
-		return "motorcycle", nil
-	default:
-		return "", fmt.Errorf(
-			"unsupported profile %q: must be one of \"car\", \"driving\", \"motorcycle\", \"motorbike\"",
-			profile,
-		)
+// optimizeProfile maps a normalized Profile onto the name the optimization
+// engine expects. The engine's default is "car" rather than "driving", so a
+// driving profile must be sent as "car" to preserve the engine default.
+func optimizeProfile(profile Profile) string {
+	if profile == MotorcycleProfile {
+		return "motorcycle"
 	}
+	return "car"
 }
 
 // buildOptimizeOutput maps the client solution onto the tool's own output
@@ -259,7 +270,7 @@ func normalizeVehicleProfile(profile string) (string, error) {
 // may return nil routes, steps or unassigned entries.
 func buildOptimizeOutput(s *justrouting.Solution) OptimizeOutput {
 	out := OptimizeOutput{
-		Summary: OptimizeSummaryOutput{
+		Summary: OptimizeSummary{
 			Cost:        s.Summary.Cost,
 			Routes:      s.Summary.Routes,
 			Unassigned:  s.Summary.Unassigned,
@@ -272,12 +283,12 @@ func buildOptimizeOutput(s *justrouting.Solution) OptimizeOutput {
 		},
 	}
 
-	out.Routes = make([]OptimizeRouteOutput, 0, len(s.Routes))
+	out.Routes = make([]OptimizeRoute, 0, len(s.Routes))
 	for _, r := range s.Routes {
 		if r == nil {
 			continue
 		}
-		route := OptimizeRouteOutput{
+		route := OptimizeRoute{
 			Vehicle:     r.Vehicle,
 			Cost:        r.Cost,
 			Setup:       r.Setup,
@@ -287,12 +298,12 @@ func buildOptimizeOutput(s *justrouting.Solution) OptimizeOutput {
 			Priority:    r.Priority,
 			Distance:    r.Distance,
 		}
-		route.Steps = make([]OptimizeStepOutput, 0, len(r.Steps))
+		route.Steps = make([]OptimizeStep, 0, len(r.Steps))
 		for _, st := range r.Steps {
 			if st == nil {
 				continue
 			}
-			route.Steps = append(route.Steps, OptimizeStepOutput{
+			route.Steps = append(route.Steps, OptimizeStep{
 				Type:        st.Type,
 				Location:    st.Location,
 				Job:         st.Job,
@@ -308,12 +319,12 @@ func buildOptimizeOutput(s *justrouting.Solution) OptimizeOutput {
 		out.Routes = append(out.Routes, route)
 	}
 
-	out.Unassigned = make([]OptimizeUnassignedOutput, 0, len(s.Unassigned))
+	out.Unassigned = make([]OptimizeUnassigned, 0, len(s.Unassigned))
 	for _, u := range s.Unassigned {
 		if u == nil {
 			continue
 		}
-		out.Unassigned = append(out.Unassigned, OptimizeUnassignedOutput{
+		out.Unassigned = append(out.Unassigned, OptimizeUnassigned{
 			ID:          u.ID,
 			Type:        u.Type,
 			Location:    u.Location,

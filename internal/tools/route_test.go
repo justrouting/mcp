@@ -47,93 +47,6 @@ func TestParsePointInvalid(t *testing.T) {
 	}
 }
 
-func TestNormalizeProfile(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"", "driving"},
-		{"car", "driving"},
-		{"driving", "driving"},
-		{"CAR", "driving"},
-		{"motorcycle", "motorcycle"},
-		{"motorbike", "motorcycle"},
-		{" Motorcycle ", "motorcycle"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got, err := normalizeProfile(tt.input)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("unexpected profile: got %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNormalizeProfileInvalid(t *testing.T) {
-	tests := []string{
-		"bicycle",
-		"walking",
-		"taxi",
-		"flying",
-	}
-
-	for _, input := range tests {
-		t.Run(input, func(t *testing.T) {
-			if _, err := normalizeProfile(input); err == nil {
-				t.Fatalf("expected error for %q", input)
-			}
-		})
-	}
-}
-
-func TestNormalizeExclude(t *testing.T) {
-	tests := []struct {
-		input []string
-		want  []string
-	}{
-		{nil, nil},
-		{[]string{}, nil},
-		{[]string{"toll"}, []string{"toll"}},
-		{[]string{"motorway", "ferry"}, []string{"motorway", "ferry"}},
-		{[]string{" Toll ", "MOTORWAY"}, []string{"toll", "motorway"}},
-		{[]string{"toll", "toll", "ferry"}, []string{"toll", "ferry"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(strings.Join(tt.input, ","), func(t *testing.T) {
-			got, err := normalizeExclude(tt.input)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if !slices.Equal(got, tt.want) {
-				t.Fatalf("unexpected exclude: got %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNormalizeExcludeInvalid(t *testing.T) {
-	tests := [][]string{
-		{"unpaved"},
-		{"toll", "highway"},
-		{""},
-	}
-
-	for _, input := range tests {
-		t.Run(strings.Join(input, ","), func(t *testing.T) {
-			if _, err := normalizeExclude(input); err == nil {
-				t.Fatalf("expected error for %v", input)
-			}
-		})
-	}
-}
-
 // routeFixture mirrors a real routing response: snapped waypoints, a
 // simplified polyline geometry, and one leg per consecutive waypoint pair.
 // (The polyline contains a literal backtick, so it is built by concatenation.)
@@ -147,7 +60,29 @@ const routeFixture = `{
     {
       "geometry": "ka|` + "`" + `@_ceeEnAqB",
       "legs": [
-        {"steps":[],"summary":"East Coast Parkway","weight":1583.4,"duration":1583.4,"distance":24512.7}
+        {
+          "steps": [
+            {
+              "mode": "driving",
+              "name": "East Coast Parkway",
+              "maneuver": {"type": "depart", "location": [103.81982, 1.35211]},
+              "intersections": [
+                {
+                  "location": [103.81982, 1.35211],
+                  "bearings": [95, 275],
+                  "entry": [true, false],
+                  "in": 1,
+                  "out": 0,
+                  "classes": ["toll", "motorway"]
+                }
+              ]
+            }
+          ],
+          "summary": "East Coast Parkway",
+          "weight": 1583.4,
+          "duration": 1583.4,
+          "distance": 24512.7
+        }
       ],
       "weight_name": "routability",
       "weight": 1583.4,
@@ -222,8 +157,14 @@ func TestGetRouteDecodesResponse(t *testing.T) {
 		t.Fatalf("unexpected geometry: %q", output.Geometry)
 	}
 
-	if !slices.Equal(output.Summary.MajorRoads, []string{"East Coast Parkway"}) {
-		t.Fatalf("unexpected major roads: %v", output.Summary.MajorRoads)
+	if !slices.Equal(output.Summary.Roads, []string{"East Coast Parkway"}) {
+		t.Fatalf("unexpected major roads: %v", output.Summary.Roads)
+	}
+	if !output.Summary.Tolls {
+		t.Fatal("expected tolls true, got false")
+	}
+	if output.Summary.Ferry {
+		t.Fatal("expected ferry false, got true")
 	}
 }
 
@@ -234,38 +175,38 @@ func TestGetRouteQueryEncoding(t *testing.T) {
 		wantPath    string
 		wantQuery   map[string]string
 		wantAbsent  []string
-		wantProfile string
-		wantExclude []string
+		wantProfile Profile
+		wantExclude []Exclude
 	}{
 		{
-			name:        "defaults request the polyline simplified overview",
+			name:        "defaults request steps and the polyline simplified overview",
 			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644"},
 			wantPath:    "/route/v1/driving/103.8198,1.3521;103.9915,1.3644",
-			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified"},
-			wantAbsent:  []string{"steps", "exclude"},
+			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified", "steps": "true"},
+			wantAbsent:  []string{"exclude"},
 			wantProfile: "driving",
 		},
 		{
 			name:        "motorcycle profile goes into the path and echoes back",
 			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "motorcycle"},
 			wantPath:    "/route/v1/motorcycle/103.8198,1.3521;103.9915,1.3644",
-			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified"},
+			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified", "steps": "true"},
 			wantProfile: "motorcycle",
 		},
 		{
-			name:        "car profile normalizes to driving",
-			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "car"},
+			name:        "driving profile goes into the path",
+			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "driving"},
 			wantPath:    "/route/v1/driving/103.8198,1.3521;103.9915,1.3644",
-			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified"},
+			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified", "steps": "true"},
 			wantProfile: "driving",
 		},
 		{
 			name:        "excluded classes are sent comma-joined and echoed",
-			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []string{"toll", "motorway"}},
+			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []Exclude{"toll", "motorway"}},
 			wantPath:    "/route/v1/driving/103.8198,1.3521;103.9915,1.3644",
-			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified", "exclude": "toll,motorway"},
+			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified", "steps": "true", "exclude": "toll,motorway"},
 			wantProfile: "driving",
-			wantExclude: []string{"toll", "motorway"},
+			wantExclude: []Exclude{"toll", "motorway"},
 		},
 	}
 
@@ -354,8 +295,13 @@ func TestGetRouteWaypointsMissing(t *testing.T) {
 	}
 
 	// An empty road list still serializes as [], never null.
-	if output.Summary.MajorRoads == nil || len(output.Summary.MajorRoads) != 0 {
-		t.Fatalf("expected empty major roads, got: %v", output.Summary.MajorRoads)
+	if output.Summary.Roads == nil || len(output.Summary.Roads) != 0 {
+		t.Fatalf("expected empty major roads, got: %v", output.Summary.Roads)
+	}
+
+	// Without step data the tolls/ferry booleans default to false.
+	if output.Summary.Tolls || output.Summary.Ferry {
+		t.Fatalf("expected no tolls/ferry, got tolls=%v ferry=%v", output.Summary.Tolls, output.Summary.Ferry)
 	}
 }
 
@@ -423,8 +369,18 @@ func TestGetRouteInputValidation(t *testing.T) {
 			wantErr: "invalid profile",
 		},
 		{
+			name:    "dropped car synonym",
+			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "car"},
+			wantErr: "invalid profile",
+		},
+		{
+			name:    "dropped motorbike synonym",
+			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "motorbike"},
+			wantErr: "invalid profile",
+		},
+		{
 			name:    "unsupported exclude class",
-			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []string{"unpaved"}},
+			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Exclude: []Exclude{"unpaved"}},
 			wantErr: "invalid exclude",
 		},
 	}
@@ -473,7 +429,7 @@ func TestGetRouteAPIErrorPassthrough(t *testing.T) {
 	}
 }
 
-func TestMajorRoads(t *testing.T) {
+func TestRoads(t *testing.T) {
 	leg := func(summary string) *justrouting.Leg {
 		return &justrouting.Leg{Summary: summary}
 	}
@@ -493,9 +449,48 @@ func TestMajorRoads(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := majorRoads(tt.legs)
+			got := roads(tt.legs)
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("unexpected roads: got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRoadClasses(t *testing.T) {
+	intersection := func(classes ...string) *justrouting.Intersection {
+		return &justrouting.Intersection{Classes: classes}
+	}
+	step := func(intersections ...*justrouting.Intersection) *justrouting.Step {
+		return &justrouting.Step{Intersections: intersections}
+	}
+	leg := func(steps ...*justrouting.Step) *justrouting.Leg {
+		return &justrouting.Leg{Steps: steps}
+	}
+
+	tests := []struct {
+		name      string
+		legs      []*justrouting.Leg
+		wantTolls bool
+		wantFerry bool
+	}{
+		{"no legs", nil, false, false},
+		{"empty steps", []*justrouting.Leg{leg()}, false, false},
+		{"no intersections", []*justrouting.Leg{leg(step())}, false, false},
+		{"toll class", []*justrouting.Leg{leg(step(intersection("toll")))}, true, false},
+		{"ferry class", []*justrouting.Leg{leg(step(intersection("ferry")))}, false, true},
+		{"both classes", []*justrouting.Leg{leg(step(intersection("toll", "ferry")))}, true, true},
+		{"any step counts", []*justrouting.Leg{leg(step(), step(intersection("toll")))}, true, false},
+		{"nil legs and steps are skipped", []*justrouting.Leg{nil, leg(nil, step(nil, intersection("ferry")))}, false, true},
+		{"class matching is case-insensitive", []*justrouting.Leg{leg(step(intersection("TOLL")))}, true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tolls, ferry := roadClasses(tt.legs)
+			if tolls != tt.wantTolls || ferry != tt.wantFerry {
+				t.Fatalf("unexpected classes: got tolls=%v ferry=%v, want tolls=%v ferry=%v",
+					tolls, ferry, tt.wantTolls, tt.wantFerry)
 			}
 		})
 	}

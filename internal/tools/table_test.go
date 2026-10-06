@@ -200,7 +200,7 @@ func TestGetTableQueryEncoding(t *testing.T) {
 		},
 		{
 			name:     "a single annotation is forwarded",
-			input:    TableInput{Coordinates: threeCoordinateStrings(), Annotations: []string{"distance"}},
+			input:    TableInput{Coordinates: threeCoordinateStrings(), Annotations: []Annotation{"distance"}},
 			wantPath: "/table/v1/driving/103.8198,1.3521;103.83,1.3048;103.9915,1.3644",
 			wantQuery: map[string]string{
 				"annotations": "distance",
@@ -215,8 +215,8 @@ func TestGetTableQueryEncoding(t *testing.T) {
 			},
 		},
 		{
-			name:     "car profile normalizes to driving",
-			input:    TableInput{Coordinates: threeCoordinateStrings(), Profile: "car"},
+			name:     "driving profile goes into the path",
+			input:    TableInput{Coordinates: threeCoordinateStrings(), Profile: "driving"},
 			wantPath: "/table/v1/driving/103.8198,1.3521;103.83,1.3048;103.9915,1.3644",
 			wantQuery: map[string]string{
 				"annotations": "duration,distance",
@@ -284,6 +284,11 @@ func TestGetTableInputValidation(t *testing.T) {
 			"invalid profile",
 		},
 		{
+			"dropped car synonym",
+			TableInput{Coordinates: threeCoordinateStrings(), Profile: "car"},
+			"invalid profile",
+		},
+		{
 			"source index out of range",
 			TableInput{Coordinates: threeCoordinateStrings(), Sources: []int{5}},
 			"invalid sources[0]",
@@ -295,7 +300,7 @@ func TestGetTableInputValidation(t *testing.T) {
 		},
 		{
 			"invalid annotation",
-			TableInput{Coordinates: threeCoordinateStrings(), Annotations: []string{"speed"}},
+			TableInput{Coordinates: threeCoordinateStrings(), Annotations: []Annotation{"speed"}},
 			"invalid annotation",
 		},
 	}
@@ -366,53 +371,6 @@ func TestGetTableAPIErrorPassthrough(t *testing.T) {
 			t.Fatalf("expected ErrPlanLimitExceeded, got: %v", err)
 		}
 	})
-}
-
-func TestNormalizeAnnotations(t *testing.T) {
-	tests := []struct {
-		name string
-		in   []string
-		want []string
-	}{
-		{"nil stays nil so the client default applies", nil, nil},
-		{"empty stays nil", []string{}, nil},
-		{"single annotation", []string{"duration"}, []string{"duration"}},
-		{
-			"case is normalized and duplicates dropped",
-			[]string{"Distance", " distance "},
-			[]string{"distance"},
-		},
-		{
-			"order is preserved",
-			[]string{"duration", "distance"},
-			[]string{"duration", "distance"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := normalizeAnnotations(tt.in)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if len(got) != len(tt.want) {
-				t.Fatalf("unexpected result: %v, want %v", got, tt.want)
-			}
-			for i := range tt.want {
-				if got[i] != tt.want[i] {
-					t.Fatalf("unexpected result: %v, want %v", got, tt.want)
-				}
-			}
-		})
-	}
-}
-
-func TestNormalizeAnnotationsInvalid(t *testing.T) {
-	for _, in := range [][]string{{"speed"}, {"duration", "walking"}} {
-		if _, err := normalizeAnnotations(in); err == nil {
-			t.Fatalf("expected error for %v", in)
-		}
-	}
 }
 
 func TestEffectiveIndices(t *testing.T) {

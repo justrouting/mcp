@@ -46,10 +46,10 @@ const optimizeEmptySolution = `{"code":0,"summary":{},"routes":[],"unassigned":[
 // optimizeTestInput is a valid one-vehicle, one-job request.
 func optimizeTestInput() OptimizeInput {
 	return OptimizeInput{
-		Vehicles: []OptimizeVehicleInput{
+		Vehicles: []OptimizeVehicle{
 			{ID: 1, Start: "103.8198,1.3521", End: "103.8198,1.3521"},
 		},
-		Jobs: []OptimizeJobInput{
+		Jobs: []OptimizeJob{
 			{ID: 1, Location: "103.8514,1.2897"},
 		},
 	}
@@ -124,10 +124,10 @@ func TestGetOptimizeRequestBody(t *testing.T) {
 		client, body := newBodyCapturingClient(t)
 
 		_, _, err := getOptimize(context.Background(), client, OptimizeInput{
-			Vehicles: []OptimizeVehicleInput{
-				{ID: 1, Profile: "car", Start: "103.8198,1.3521"},
+			Vehicles: []OptimizeVehicle{
+				{ID: 1, Profile: "driving", Start: "103.8198,1.3521"},
 			},
-			Jobs: []OptimizeJobInput{
+			Jobs: []OptimizeJob{
 				{ID: 1, Location: "103.8514,1.2897"},
 			},
 		})
@@ -163,10 +163,10 @@ func TestGetOptimizeRequestBody(t *testing.T) {
 		client, body := newBodyCapturingClient(t)
 
 		_, _, err := getOptimize(context.Background(), client, OptimizeInput{
-			Vehicles: []OptimizeVehicleInput{
-				{ID: 1, Profile: "motorbike", Start: "103.8198,1.3521"},
+			Vehicles: []OptimizeVehicle{
+				{ID: 1, Profile: "motorcycle", Start: "103.8198,1.3521"},
 			},
-			Jobs: []OptimizeJobInput{
+			Jobs: []OptimizeJob{
 				{ID: 1, Location: "103.8514,1.2897"},
 			},
 		})
@@ -184,10 +184,10 @@ func TestGetOptimizeRequestBody(t *testing.T) {
 		client, body := newBodyCapturingClient(t)
 
 		_, _, err := getOptimize(context.Background(), client, OptimizeInput{
-			Vehicles: []OptimizeVehicleInput{
+			Vehicles: []OptimizeVehicle{
 				{ID: 1, Start: "", End: "103.8198,1.3521"},
 			},
-			Jobs: []OptimizeJobInput{
+			Jobs: []OptimizeJob{
 				{ID: 1, Location: "103.8514,1.2897"},
 			},
 		})
@@ -209,11 +209,11 @@ func TestGetOptimizeRequestBody(t *testing.T) {
 }
 
 func TestGetOptimizeInputValidation(t *testing.T) {
-	validVehicle := func() OptimizeVehicleInput {
-		return OptimizeVehicleInput{ID: 1, Start: "103.8198,1.3521"}
+	validVehicle := func() OptimizeVehicle {
+		return OptimizeVehicle{ID: 1, Start: "103.8198,1.3521"}
 	}
-	validJob := func() OptimizeJobInput {
-		return OptimizeJobInput{ID: 1, Location: "103.8514,1.2897"}
+	validJob := func() OptimizeJob {
+		return OptimizeJob{ID: 1, Location: "103.8514,1.2897"}
 	}
 
 	tests := []struct {
@@ -221,29 +221,29 @@ func TestGetOptimizeInputValidation(t *testing.T) {
 		input     OptimizeInput
 		wantError string
 	}{
-		{"no vehicles", OptimizeInput{Jobs: []OptimizeJobInput{validJob()}}, "at least 1 vehicle"},
-		{"no jobs", OptimizeInput{Vehicles: []OptimizeVehicleInput{validVehicle()}}, "at least 1 job"},
+		{"no vehicles", OptimizeInput{Jobs: []OptimizeJob{validJob()}}, "at least 1 vehicle"},
+		{"no jobs", OptimizeInput{Vehicles: []OptimizeVehicle{validVehicle()}}, "at least 1 job"},
 		{
 			"vehicle without start or end",
 			OptimizeInput{
-				Vehicles: []OptimizeVehicleInput{{ID: 1}},
-				Jobs:     []OptimizeJobInput{validJob()},
+				Vehicles: []OptimizeVehicle{{ID: 1}},
+				Jobs:     []OptimizeJob{validJob()},
 			},
 			"vehicles[0]",
 		},
 		{
 			"malformed vehicle start reports its position",
 			OptimizeInput{
-				Vehicles: []OptimizeVehicleInput{{ID: 1, Start: "not-a-coordinate"}},
-				Jobs:     []OptimizeJobInput{validJob()},
+				Vehicles: []OptimizeVehicle{{ID: 1, Start: "not-a-coordinate"}},
+				Jobs:     []OptimizeJob{validJob()},
 			},
 			"vehicles[0].start",
 		},
 		{
 			"malformed job location reports its position",
 			OptimizeInput{
-				Vehicles: []OptimizeVehicleInput{validVehicle()},
-				Jobs: []OptimizeJobInput{
+				Vehicles: []OptimizeVehicle{validVehicle()},
+				Jobs: []OptimizeJob{
 					validJob(),
 					{ID: 2, Location: "not-a-coordinate"},
 				},
@@ -253,27 +253,35 @@ func TestGetOptimizeInputValidation(t *testing.T) {
 		{
 			"unsupported profile",
 			OptimizeInput{
-				Vehicles: []OptimizeVehicleInput{{ID: 1, Profile: "walking", Start: "103.8198,1.3521"}},
-				Jobs:     []OptimizeJobInput{validJob()},
+				Vehicles: []OptimizeVehicle{{ID: 1, Profile: "walking", Start: "103.8198,1.3521"}},
+				Jobs:     []OptimizeJob{validJob()},
+			},
+			"vehicles[0].profile",
+		},
+		{
+			"dropped car synonym",
+			OptimizeInput{
+				Vehicles: []OptimizeVehicle{{ID: 1, Profile: "car", Start: "103.8198,1.3521"}},
+				Jobs:     []OptimizeJob{validJob()},
 			},
 			"vehicles[0].profile",
 		},
 		{
 			"duplicate vehicle ids",
 			OptimizeInput{
-				Vehicles: []OptimizeVehicleInput{
+				Vehicles: []OptimizeVehicle{
 					validVehicle(),
 					{ID: 1, Start: "103.84,1.30"},
 				},
-				Jobs: []OptimizeJobInput{validJob()},
+				Jobs: []OptimizeJob{validJob()},
 			},
 			"vehicle ids must be unique",
 		},
 		{
 			"duplicate job ids",
 			OptimizeInput{
-				Vehicles: []OptimizeVehicleInput{validVehicle()},
-				Jobs: []OptimizeJobInput{
+				Vehicles: []OptimizeVehicle{validVehicle()},
+				Jobs: []OptimizeJob{
 					validJob(),
 					{ID: 1, Location: "103.84,1.30"},
 				},
@@ -364,34 +372,20 @@ func TestGetOptimizeAPIErrorPassthrough(t *testing.T) {
 	})
 }
 
-func TestNormalizeVehicleProfile(t *testing.T) {
+func TestOptimizeProfile(t *testing.T) {
 	tests := []struct {
-		profile string
+		profile Profile
 		want    string
-		wantErr bool
 	}{
-		{"", "car", false},
-		{"car", "car", false},
-		{"driving", "car", false},
-		{"motorcycle", "motorcycle", false},
-		{"motorbike", "motorcycle", false},
-		{"walking", "", true},
+		{DrivingProfile, "car"},
+		{"", "car"},
+		{MotorcycleProfile, "motorcycle"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.profile, func(t *testing.T) {
-			got, err := normalizeVehicleProfile(tt.profile)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error for %q", tt.profile)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("normalizeVehicleProfile(%q): %v", tt.profile, err)
-			}
-			if got != tt.want {
-				t.Errorf("normalizeVehicleProfile(%q) = %q, want %q", tt.profile, got, tt.want)
+		t.Run(string(tt.profile), func(t *testing.T) {
+			if got := optimizeProfile(tt.profile); got != tt.want {
+				t.Errorf("optimizeProfile(%q) = %q, want %q", tt.profile, got, tt.want)
 			}
 		})
 	}
