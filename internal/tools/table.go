@@ -15,7 +15,7 @@ type TableConfig struct {
 
 type TableInput struct {
 	Coordinates  []string `json:"coordinates" jsonschema:"list of coordinates in longitude,latitude format, for example [\"103.8198,1.3521\", \"103.9915,1.3644\"]; at least 2 required; the position of each coordinate in this list is its index in the returned matrices"`
-	Profile      string   `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it or set it to \"car\" for the default driving profile"`
+	Profile      Profile  `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
 	Sources      []int    `json:"sources,omitempty" jsonschema:"optional subset of coordinates to use as matrix rows (sources), by index into the coordinates list; empty or omitted means all of them"`
 	Destinations []int    `json:"destinations,omitempty" jsonschema:"optional subset of coordinates to use as matrix columns (destinations), by index into the coordinates list; empty or omitted means all of them"`
 	Annotations  []string `json:"annotations,omitempty" jsonschema:"which matrices to compute: \"duration\", \"distance\", or both; omit to get both"`
@@ -49,7 +49,8 @@ func RegisterTableTool(
 	mcp.AddTool(
 		server,
 		&mcp.Tool{
-			Name: "table",
+			Name:        "table",
+			InputSchema: mustSchema[TableInput]("table input schema"),
 			Description: `
 Calculate a matrix of travel durations and distances between many locations using JustRouting.
 
@@ -85,7 +86,7 @@ Optional "annotations" input selects which matrices to compute:
 
 Optional "profile" input selects the routing profile:
 - If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
-- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile or set it to "car" to get the default driving route.
+- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile to get the default driving route.
 			`,
 		},
 		func(
@@ -147,7 +148,7 @@ func getTable(
 			Sources:      input.Sources,
 			Destinations: input.Destinations,
 			Annotations:  annotations,
-			Profile:      profile,
+			Profile:      string(profile),
 		},
 	)
 	if err != nil {

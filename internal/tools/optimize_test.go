@@ -125,7 +125,7 @@ func TestGetOptimizeRequestBody(t *testing.T) {
 
 		_, _, err := getOptimize(context.Background(), client, OptimizeInput{
 			Vehicles: []OptimizeVehicleInput{
-				{ID: 1, Profile: "car", Start: "103.8198,1.3521"},
+				{ID: 1, Profile: "driving", Start: "103.8198,1.3521"},
 			},
 			Jobs: []OptimizeJobInput{
 				{ID: 1, Location: "103.8514,1.2897"},
@@ -164,7 +164,7 @@ func TestGetOptimizeRequestBody(t *testing.T) {
 
 		_, _, err := getOptimize(context.Background(), client, OptimizeInput{
 			Vehicles: []OptimizeVehicleInput{
-				{ID: 1, Profile: "motorbike", Start: "103.8198,1.3521"},
+				{ID: 1, Profile: "motorcycle", Start: "103.8198,1.3521"},
 			},
 			Jobs: []OptimizeJobInput{
 				{ID: 1, Location: "103.8514,1.2897"},
@@ -254,6 +254,14 @@ func TestGetOptimizeInputValidation(t *testing.T) {
 			"unsupported profile",
 			OptimizeInput{
 				Vehicles: []OptimizeVehicleInput{{ID: 1, Profile: "walking", Start: "103.8198,1.3521"}},
+				Jobs:     []OptimizeJobInput{validJob()},
+			},
+			"vehicles[0].profile",
+		},
+		{
+			"dropped car synonym",
+			OptimizeInput{
+				Vehicles: []OptimizeVehicleInput{{ID: 1, Profile: "car", Start: "103.8198,1.3521"}},
 				Jobs:     []OptimizeJobInput{validJob()},
 			},
 			"vehicles[0].profile",
@@ -364,34 +372,20 @@ func TestGetOptimizeAPIErrorPassthrough(t *testing.T) {
 	})
 }
 
-func TestNormalizeVehicleProfile(t *testing.T) {
+func TestOptimizeProfile(t *testing.T) {
 	tests := []struct {
-		profile string
+		profile Profile
 		want    string
-		wantErr bool
 	}{
-		{"", "car", false},
-		{"car", "car", false},
-		{"driving", "car", false},
-		{"motorcycle", "motorcycle", false},
-		{"motorbike", "motorcycle", false},
-		{"walking", "", true},
+		{ProfileDriving, "car"},
+		{"", "car"},
+		{ProfileMotorcycle, "motorcycle"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.profile, func(t *testing.T) {
-			got, err := normalizeVehicleProfile(tt.profile)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("expected error for %q", tt.profile)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("normalizeVehicleProfile(%q): %v", tt.profile, err)
-			}
-			if got != tt.want {
-				t.Errorf("normalizeVehicleProfile(%q) = %q, want %q", tt.profile, got, tt.want)
+		t.Run(string(tt.profile), func(t *testing.T) {
+			if got := optimizeProfile(tt.profile); got != tt.want {
+				t.Errorf("optimizeProfile(%q) = %q, want %q", tt.profile, got, tt.want)
 			}
 		})
 	}

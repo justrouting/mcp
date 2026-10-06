@@ -215,8 +215,8 @@ func TestGetTableQueryEncoding(t *testing.T) {
 			},
 		},
 		{
-			name:     "car profile normalizes to driving",
-			input:    TableInput{Coordinates: threeCoordinateStrings(), Profile: "car"},
+			name:     "driving profile goes into the path",
+			input:    TableInput{Coordinates: threeCoordinateStrings(), Profile: "driving"},
 			wantPath: "/table/v1/driving/103.8198,1.3521;103.83,1.3048;103.9915,1.3644",
 			wantQuery: map[string]string{
 				"annotations": "duration,distance",
@@ -281,6 +281,11 @@ func TestGetTableInputValidation(t *testing.T) {
 		{
 			"unsupported profile",
 			TableInput{Coordinates: threeCoordinateStrings(), Profile: "walking"},
+			"invalid profile",
+		},
+		{
+			"dropped car synonym",
+			TableInput{Coordinates: threeCoordinateStrings(), Profile: "car"},
 			"invalid profile",
 		},
 		{

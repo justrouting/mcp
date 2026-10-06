@@ -17,14 +17,14 @@ type RouteConfig struct {
 type RouteInput struct {
 	Origin      string   `json:"origin" jsonschema:"origin coordinates in longitude,latitude format"`
 	Destination string   `json:"destination" jsonschema:"destination coordinates in longitude,latitude format"`
-	Profile     string   `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it or set it to \"car\" for the default driving profile"`
+	Profile     Profile  `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
 	Exclude     []string `json:"exclude,omitempty" jsonschema:"road classes to avoid, for example [\"toll\"] when the user asks to avoid toll roads; supported values are \"toll\", \"motorway\", \"ferry\""`
 }
 
 type RouteOutput struct {
 	DistanceMeters  float64            `json:"distance_meters" jsonschema:"route length in meters"`
 	DurationSeconds float64            `json:"duration_seconds" jsonschema:"estimated travel time in seconds"`
-	Profile         string             `json:"profile" jsonschema:"routing profile used: \"driving\" or \"motorcycle\""`
+	Profile         Profile            `json:"profile" jsonschema:"routing profile used: \"driving\" or \"motorcycle\""`
 	Origin          RoutePointOutput   `json:"origin" jsonschema:"the origin as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
 	Destination     RoutePointOutput   `json:"destination" jsonschema:"the destination as the routing engine used it: the requested coordinate plus where it snapped to the road network"`
 	Geometry        string             `json:"geometry,omitempty" jsonschema:"the route's shape as an encoded polyline (simplified overview); omitted when the engine returned none"`
@@ -56,7 +56,9 @@ func RegisterRouteTool(
 	mcp.AddTool(
 		server,
 		&mcp.Tool{
-			Name: "route",
+			Name:         "route",
+			InputSchema:  mustSchema[RouteInput]("route input schema"),
+			OutputSchema: mustSchema[RouteOutput]("route output schema"),
 			Description: `
 Calculate a route between two locations using JustRouting: distance in meters, estimated travel duration in seconds, the route's polyline geometry, the snapped origin and destination, the main roads traveled, and whether the route uses toll roads or a ferry.
 
@@ -71,7 +73,7 @@ pass the "coordinates" value of its first (best) result to this tool.
 
 Optional "profile" input selects the routing profile:
 - If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
-- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile or set it to "car" to get the default driving route.
+- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile to get the default driving route.
 
 Optional "exclude" input lists road classes to avoid, for example ["toll"] when the user asks to avoid toll roads. Supported values are "toll", "motorway" and "ferry". The engine routes around them where a reasonable alternative exists.
 			`,
@@ -116,7 +118,7 @@ func getRoute(
 		&justrouting.RouteRequest{
 			Origin:      origin,
 			Destination: destination,
-			Profile:     profile,
+			Profile:     string(profile),
 			Exclude:     exclude,
 			// Steps is the only way the engine reports intersection road
 			// classes and leg summaries: the classes feed the summary
@@ -277,25 +279,6 @@ func parsePoint(value string) (justrouting.Point, error) {
 	}
 
 	return point, nil
-}
-
-// normalizeProfile maps user-facing profile names to JustRouting API
-// profiles. An empty profile (field omitted) and car synonyms map to
-// "driving", the API default. Motorcycle synonyms map to "motorcycle".
-// Any other value is rejected so unsupported profiles fail fast with a
-// clear error instead of silently returning a driving route.
-func normalizeProfile(profile string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(profile)) {
-	case "", "car", "driving":
-		return "driving", nil
-	case "motorcycle", "motorbike":
-		return "motorcycle", nil
-	default:
-		return "", fmt.Errorf(
-			"unsupported profile %q: must be one of \"car\", \"driving\", \"motorcycle\", \"motorbike\"",
-			profile,
-		)
-	}
 }
 
 // normalizeExclude validates and normalizes the road classes to avoid.

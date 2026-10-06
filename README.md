@@ -84,7 +84,7 @@ Input:
 }
 ```
 
-`profile` is optional. Set it to `"motorcycle"` for a motorcycle route; omit it (or use `"car"`) for the default driving route. When the user mentions a motorcycle or motorbike, the assistant sets `profile` to `"motorcycle"`.
+`profile` is optional. Set it to `"motorcycle"` for a motorcycle route; omit it for the default driving route. When the user mentions a motorcycle or motorbike, the assistant sets `profile` to `"motorcycle"`.
 
 `exclude` is optional. Pass the road classes to avoid, for example `["toll"]` when the user asks to avoid toll roads. Supported values are `"toll"`, `"motorway"` and `"ferry"`; the engine routes around them where a reasonable alternative exists.
 
@@ -200,7 +200,7 @@ Input:
 
 `coordinates` is required and must hold at least two entries in `longitude,latitude` format (as returned by `geocode`). The position of each entry is its index: matrix rows and columns, and the `index` field of every source/destination in the output, refer back to it. Pass the places in a fixed order — for a nearest-driver question, put the customer first and the drivers after, then read the first row.
 
-`sources` and `destinations` optionally restrict the matrix to subsets of the coordinates by index (empty or omitted means all of them). `annotations` optionally selects `"duration"`, `"distance"`, or both (default both). `profile` works exactly as in `route` — set `"motorcycle"` when the user mentions a motorcycle or motorbike, otherwise omit it (or use `"car"`) for driving.
+`sources` and `destinations` optionally restrict the matrix to subsets of the coordinates by index (empty or omitted means all of them). `annotations` optionally selects `"duration"`, `"distance"`, or both (default both). `profile` works exactly as in `route` — set `"motorcycle"` when the user mentions a motorcycle or motorbike, otherwise omit it for driving.
 
 Output:
 
@@ -249,7 +249,7 @@ Input:
 }
 ```
 
-At least one vehicle and one job are required, with unique ids. Coordinates are `longitude,latitude` strings (as returned by `geocode`). Set a vehicle's `start` and `end` both to its current location for a round trip, or omit them (or pass `""`) when the vehicle may start or end anywhere. `profile` works per vehicle exactly as in `route` — set `"motorcycle"` when the user mentions a motorcycle or motorbike, otherwise omit it (or use `"car"`) for driving.
+At least one vehicle and one job are required, with unique ids. Coordinates are `longitude,latitude` strings (as returned by `geocode`). Set a vehicle's `start` and `end` both to its current location for a round trip, or omit them (or pass `""`) when the vehicle may start or end anywhere. `profile` works per vehicle exactly as in `route` — set `"motorcycle"` when the user mentions a motorcycle or motorbike, otherwise omit it for driving.
 
 Output (vehicle 2's route and some fields omitted for brevity):
 

@@ -20,7 +20,7 @@ type OptimizeInput struct {
 
 type OptimizeVehicleInput struct {
 	ID      int    `json:"id" jsonschema:"unique vehicle identifier, for example 1"`
-	Profile string `json:"profile,omitempty" jsonschema:"routing profile for this vehicle: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it or set it to \"car\" for the default driving profile"`
+	Profile Profile `json:"profile,omitempty" jsonschema:"routing profile for this vehicle: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
 	Start   string `json:"start,omitempty" jsonschema:"vehicle start location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may start anywhere"`
 	End     string `json:"end,omitempty" jsonschema:"vehicle end location in longitude,latitude format, for example \"103.8198,1.3521\"; for a round trip set it to the vehicle's current location; omit or pass an empty string when the vehicle may end anywhere"`
 }
@@ -89,7 +89,8 @@ func RegisterOptimizeTool(
 	mcp.AddTool(
 		server,
 		&mcp.Tool{
-			Name: "optimize",
+			Name:        "optimize",
+			InputSchema: mustSchema[OptimizeInput]("optimize input schema"),
 			Description: `
 Solve a vehicle routing problem using JustRouting: assign jobs to vehicles and order each vehicle's stops.
 
@@ -114,7 +115,7 @@ For example: 103.8198,1.3521
 
 Optional per-vehicle "profile" input selects the routing profile:
 - If the user's request mentions a motorcycle or motorbike, set profile to "motorcycle".
-- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile or set it to "car" to get the default driving profile.
+- Otherwise (the user asks to drive, or no vehicle is mentioned), omit profile to get the default driving profile.
 
 The response contains:
 - "routes": one itinerary per vehicle that was used. Read each route's "steps" in
@@ -176,12 +177,12 @@ func buildOptimizeRequest(input OptimizeInput) (*justrouting.OptimizationRequest
 		}
 		seenVehicles[v.ID] = true
 
-		profile, err := normalizeVehicleProfile(v.Profile)
+		profile, err := normalizeProfile(v.Profile)
 		if err != nil {
 			return nil, fmt.Errorf("invalid vehicles[%d].profile: %w", i, err)
 		}
 
-		vehicles[i] = justrouting.Vehicle{ID: v.ID, Profile: profile}
+		vehicles[i] = justrouting.Vehicle{ID: v.ID, Profile: optimizeProfile(profile)}
 
 		// An empty start/end means the vehicle may start or end anywhere:
 		// leave the point nil so the field is omitted from the request
@@ -234,23 +235,14 @@ func buildOptimizeRequest(input OptimizeInput) (*justrouting.OptimizationRequest
 	}, nil
 }
 
-// normalizeVehicleProfile maps user-facing profile names to the optimization
-// engine's profiles, which differ from the route/table API: an empty profile
-// (field omitted) and car synonyms map to "car", the engine's default.
-// Motorcycle synonyms map to "motorcycle". Any other value is rejected so
-// unsupported profiles fail fast with a clear error.
-func normalizeVehicleProfile(profile string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(profile)) {
-	case "", "car", "driving":
-		return "car", nil
-	case "motorcycle", "motorbike":
-		return "motorcycle", nil
-	default:
-		return "", fmt.Errorf(
-			"unsupported profile %q: must be one of \"car\", \"driving\", \"motorcycle\", \"motorbike\"",
-			profile,
-		)
+// optimizeProfile maps a normalized Profile onto the name the optimization
+// engine expects. The engine's default is "car" rather than "driving", so a
+// driving profile must be sent as "car" to preserve the engine default.
+func optimizeProfile(profile Profile) string {
+	if profile == ProfileMotorcycle {
+		return "motorcycle"
 	}
+	return "car"
 }
 
 // buildOptimizeOutput maps the client solution onto the tool's own output

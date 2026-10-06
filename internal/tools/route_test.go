@@ -47,51 +47,6 @@ func TestParsePointInvalid(t *testing.T) {
 	}
 }
 
-func TestNormalizeProfile(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"", "driving"},
-		{"car", "driving"},
-		{"driving", "driving"},
-		{"CAR", "driving"},
-		{"motorcycle", "motorcycle"},
-		{"motorbike", "motorcycle"},
-		{" Motorcycle ", "motorcycle"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got, err := normalizeProfile(tt.input)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if got != tt.want {
-				t.Fatalf("unexpected profile: got %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNormalizeProfileInvalid(t *testing.T) {
-	tests := []string{
-		"bicycle",
-		"walking",
-		"taxi",
-		"flying",
-	}
-
-	for _, input := range tests {
-		t.Run(input, func(t *testing.T) {
-			if _, err := normalizeProfile(input); err == nil {
-				t.Fatalf("expected error for %q", input)
-			}
-		})
-	}
-}
-
 func TestNormalizeExclude(t *testing.T) {
 	tests := []struct {
 		input []string
@@ -262,7 +217,7 @@ func TestGetRouteQueryEncoding(t *testing.T) {
 		wantPath    string
 		wantQuery   map[string]string
 		wantAbsent  []string
-		wantProfile string
+		wantProfile Profile
 		wantExclude []string
 	}{
 		{
@@ -281,8 +236,8 @@ func TestGetRouteQueryEncoding(t *testing.T) {
 			wantProfile: "motorcycle",
 		},
 		{
-			name:        "car profile normalizes to driving",
-			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "car"},
+			name:        "driving profile goes into the path",
+			input:       RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "driving"},
 			wantPath:    "/route/v1/driving/103.8198,1.3521;103.9915,1.3644",
 			wantQuery:   map[string]string{"geometries": "polyline", "overview": "simplified", "steps": "true"},
 			wantProfile: "driving",
@@ -453,6 +408,16 @@ func TestGetRouteInputValidation(t *testing.T) {
 		{
 			name:    "unsupported profile",
 			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "walking"},
+			wantErr: "invalid profile",
+		},
+		{
+			name:    "dropped car synonym",
+			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "car"},
+			wantErr: "invalid profile",
+		},
+		{
+			name:    "dropped motorbike synonym",
+			input:   RouteInput{Origin: "103.8198,1.3521", Destination: "103.9915,1.3644", Profile: "motorbike"},
 			wantErr: "invalid profile",
 		},
 		{
