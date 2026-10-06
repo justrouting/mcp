@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	justrouting "github.com/justrouting/go-client"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -18,7 +17,7 @@ type TableInput struct {
 	Profile      Profile  `json:"profile,omitempty" jsonschema:"routing profile: set to \"motorcycle\" when the user's request mentions a motorcycle or motorbike; otherwise omit it for the default driving profile"`
 	Sources      []int    `json:"sources,omitempty" jsonschema:"optional subset of coordinates to use as matrix rows (sources), by index into the coordinates list; empty or omitted means all of them"`
 	Destinations []int    `json:"destinations,omitempty" jsonschema:"optional subset of coordinates to use as matrix columns (destinations), by index into the coordinates list; empty or omitted means all of them"`
-	Annotations  []string `json:"annotations,omitempty" jsonschema:"which matrices to compute: \"duration\", \"distance\", or both; omit to get both"`
+	Annotations  []Annotation `json:"annotations,omitempty" jsonschema:"which matrices to compute: \"duration\", \"distance\", or both; omit to get both"`
 }
 
 // TableWaypoint describes one source or destination coordinate as the
@@ -165,7 +164,7 @@ func getTable(
 			Coordinates:  points,
 			Sources:      input.Sources,
 			Destinations: input.Destinations,
-			Annotations:  annotations,
+			Annotations:  annotationStrings(annotations),
 			Profile:      string(profile),
 		},
 	)
@@ -237,28 +236,3 @@ func buildWaypoints(waypoints []*justrouting.Waypoint, indices []int) []TableWay
 	return out
 }
 
-// normalizeAnnotations validates and deduplicates matrix annotations.
-// Empty input returns nil so the client applies its default (both).
-func normalizeAnnotations(annotations []string) ([]string, error) {
-	if len(annotations) == 0 {
-		return nil, nil
-	}
-	out := make([]string, 0, len(annotations))
-	seen := make(map[string]bool, len(annotations))
-	for _, a := range annotations {
-		a = strings.ToLower(strings.TrimSpace(a))
-		switch a {
-		case "duration", "distance":
-		default:
-			return nil, fmt.Errorf(
-				"invalid annotation %q: must be \"duration\" or \"distance\"",
-				a,
-			)
-		}
-		if !seen[a] {
-			seen[a] = true
-			out = append(out, a)
-		}
-	}
-	return out, nil
-}

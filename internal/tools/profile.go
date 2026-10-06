@@ -25,7 +25,7 @@ const (
 // string enums rather than plain strings, so LLM clients see the allowed
 // values. TypeSchemas propagate into nested struct fields, which is how
 // OptimizeVehicleInput.Profile (inside OptimizeInput.Vehicles) and the
-// exclude list's items get their enums.
+// exclude and annotations lists' items get their enums.
 var toolSchemaOptions = &jsonschema.ForOptions{
 	TypeSchemas: map[reflect.Type]*jsonschema.Schema{
 		reflect.TypeFor[Profile](): {
@@ -35,6 +35,10 @@ var toolSchemaOptions = &jsonschema.ForOptions{
 		reflect.TypeFor[Exclude](): {
 			Type: "string",
 			Enum: []any{ExcludeToll, ExcludeMotorway, ExcludeFerry},
+		},
+		reflect.TypeFor[Annotation](): {
+			Type: "string",
+			Enum: []any{DurationAnnotation, DistanceAnnotation},
 		},
 	},
 }

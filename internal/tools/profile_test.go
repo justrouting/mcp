@@ -90,9 +90,9 @@ func TestProfileEnumInToolSchemas(t *testing.T) {
 
 // TestRegisteredToolsExposeEnums is the acceptance test: it registers
 // the real tools, round-trips tools/list over an in-memory MCP connection
-// (exactly what an LLM client sees), and checks the profile and exclude
-// enums plus the strict rejection of values outside them. Registration only
-// builds a client; no request ever reaches the network.
+// (exactly what an LLM client sees), and checks the profile, exclude and
+// annotation enums plus the strict rejection of values outside them.
+// Registration only builds a client; no request ever reaches the network.
 func TestRegisteredToolsExposeEnums(t *testing.T) {
 	ctx := context.Background()
 
@@ -141,6 +141,12 @@ func TestRegisteredToolsExposeEnums(t *testing.T) {
 		t.Errorf("route inputSchema.properties.exclude.items.enum = %v, want %v", got, wantExclude)
 	}
 
+	wantAnnotations := []any{"duration", "distance"}
+	annotations := schemas["table"]["properties"].(map[string]any)["annotations"].(map[string]any)
+	if got := annotations["items"].(map[string]any)["enum"]; !reflect.DeepEqual(got, wantAnnotations) {
+		t.Errorf("table inputSchema.properties.annotations.items.enum = %v, want %v", got, wantAnnotations)
+	}
+
 	// The SDK validates arguments against the enum before the handler runs,
 	// so the dropped "car" synonym is rejected without any HTTP request.
 	call, err := session.CallTool(ctx, &mcp.CallToolParams{
@@ -173,5 +179,20 @@ func TestRegisteredToolsExposeEnums(t *testing.T) {
 	}
 	if !call.IsError {
 		t.Error(`expected exclude "unpaved" to be rejected by schema validation`)
+	}
+
+	// And an unsupported annotation by the table annotations items enum.
+	call, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "table",
+		Arguments: map[string]any{
+			"coordinates": []any{"103.8198,1.3521", "103.9915,1.3644"},
+			"annotations": []any{"speed"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("table call: %v", err)
+	}
+	if !call.IsError {
+		t.Error(`expected annotation "speed" to be rejected by schema validation`)
 	}
 }
