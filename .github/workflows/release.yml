@@ -38,3 +38,59 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # GoReleaser does not produce the .mcpb bundle for the MCP registry; build
+  # it from the published release binaries, attach it to the same release,
+  # and sync server.json (version, download URL, sha256) to the new tag.
+  mcpb:
+    name: Build and upload mcpb bundle
+    runs-on: ubuntu-latest
+    needs: goreleaser
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install mcpb CLI
+        run: npm install -g @anthropic-ai/mcpb
+
+      - name: Build justrouting.mcpb
+        run: scripts/build-mcpb.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Upload justrouting.mcpb to release
+        run: gh release upload "$GITHUB_REF_NAME" justrouting.mcpb --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update server.json version and checksum
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA256="$(sha256sum justrouting.mcpb | awk '{print $1}')"
+          export VERSION SHA256
+          python3 - <<'PY'
+          import json, os
+          version, sha256 = os.environ["VERSION"], os.environ["SHA256"]
+          with open("server.json") as f:
+              data = json.load(f)
+          data["version"] = version
+          for pkg in data["packages"]:
+              pkg["identifier"] = f"https://github.com/justrouting/mcp/releases/download/v{version}/justrouting.mcpb"
+              pkg["fileSha256"] = sha256
+          with open("server.json", "w") as f:
+              json.dump(data, f, indent=2)
+              f.write("\n")
+          PY
+
+      - name: Commit and push server.json
+        run: |
+          if git diff --quiet server.json; then
+            echo "server.json already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.json
+          git commit -m "chore: sync server.json to ${GITHUB_REF_NAME}"
+          git push origin HEAD:${{ github.event.repository.default_branch }}
