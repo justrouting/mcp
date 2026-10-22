@@ -3,7 +3,7 @@
   "name": "io.github.justrouting/justrouting",
   "title": "JustRouting MCP Server",
   "description": "Road routing, travel-time matrices, geocoding, and fleet optimization for Southeast Asia.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "websiteUrl": "https://justrouting.tech",
   "repository": {
     "url": "https://github.com/justrouting/mcp",
@@ -30,9 +30,11 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/justrouting/mcp/releases/download/v0.2.0/justrouting.mcpb",
-      "fileSha256": "f15665ba4875709a49d0ecda0d407aafb4b1a25eaf2d40c31297fe15a1799d5e",
-      "transport": { "type": "stdio" },
+      "identifier": "https://github.com/justrouting/mcp/releases/download/v0.2.1/justrouting.mcpb",
+      "fileSha256": "3060dc6782cc8956d101a64820d8c251c0aff8c1876efc0811c89574e1a47baf",
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
         {
           "name": "JUSTROUTING_API_KEY",
