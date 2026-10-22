@@ -425,12 +425,13 @@ A matrix value of `null` means that the origin-destination pair is unreachable. 
 
 ## `optimize`
 
-Assign jobs to vehicles and determine the order in which each vehicle should visit its assigned jobs.
+Assign jobs and shipments to vehicles and determine the order in which each vehicle should visit its stops.
 
 Use it when the user needs to:
 
 * assign multiple deliveries or pickups to vehicles
-* plan routes for a fleet
+* plan routes for a fleet with amounts, capacity, skills, or time windows
+* pair pickups with deliveries that one vehicle must serve in order
 * determine the order of multiple stops
 * optimize a multi-vehicle routing solution
 
@@ -485,12 +486,46 @@ For a round trip, set both to the same location:
 
 If `start` or `end` is omitted, the vehicle may start or end anywhere.
 
-Each vehicle and job must have a unique `id`.
+Each vehicle and job must have a unique `id`. Shipment pickup ids must be unique among pickups and delivery ids among deliveries. Break ids must be unique within their vehicle.
 
 Locations must use:
 
 ```text
 longitude,latitude
+```
+
+A richer example with capacity, time windows and priorities:
+
+```json
+{
+  "vehicles": [
+    {
+      "id": 1,
+      "start": "103.7923,1.3246",
+      "end": "103.7923,1.3246",
+      "capacity": [1000, 4],
+      "time_window": [0, 28800]
+    }
+  ],
+  "jobs": [
+    {
+      "id": 1,
+      "location": "103.7975,1.3104",
+      "delivery": [100, 1],
+      "service": 300,
+      "time_windows": [[0, 14400]],
+      "priority": 80
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {"id": 2, "location": "103.7843,1.3149", "service": 150},
+      "delivery": {"id": 3, "location": "103.7976,1.3198", "service": 150},
+      "amount": [50]
+    }
+  ],
+  "options": {"g": true}
+}
 ```
 
 ### Vehicle profiles
@@ -512,6 +547,46 @@ Use `"motorcycle"` when the user explicitly asks for a motorcycle or motorbike r
 
 Otherwise, omit `profile` to use the default driving profile.
 
+### Amounts and capacity
+
+`capacity` on a vehicle and `delivery`, `pickup` and `amount` on tasks are multidimensional: one value per dimension.
+
+```json
+{"capacity": [1000, 4]}
+```
+
+means 1000 kilograms and 4 pallets. Every such vector in one request must share the same length.
+
+A vehicle serves a set of tasks only if its load never exceeds its capacity. Insufficient capacity is not an error: the task is moved to `unassigned` instead.
+
+### Skills
+
+`skills` are integer capability tags. A task is served only by a vehicle that has all the task's skills. A task without skills can be served by any vehicle.
+
+### Time windows
+
+A time window is an inclusive `[start, end]` pair in seconds. Use one clock for the whole request: either relative (for example `[0, 14400]` means within 4 hours of the planning start) or absolute UNIX timestamps. Early arrivals wait until the window opens. Tasks that cannot be reached in time are moved to `unassigned`.
+
+### Priority
+
+`priority` is 0-100. When not everything fits, higher-priority tasks are kept and lower-priority ones are dropped.
+
+### Shipments
+
+A shipment is a pickup and a delivery served in order by the same vehicle, with `amount` loaded at the pickup and unloaded at the delivery.
+
+### Breaks
+
+A vehicle's `breaks` are rest periods with an id unique within the vehicle, optional `time_windows`, and a `service` duration in seconds.
+
+### Custom matrices
+
+`matrices` supplies your own travel-time (`durations`), distance and cost matrices per profile (`"car"` or `"motorcycle"`). Use it only when the user supplies their own travel times; then `location_index`, `start_index` and `end_index` reference rows and columns instead of coordinates.
+
+### Route geometry
+
+Set `"options": {"g": true}` to get an encoded polyline and distances back for every route. Use it when the user wants to draw the routes on a map.
+
 ### Output
 
 A simplified result looks like:
@@ -522,13 +597,15 @@ A simplified result looks like:
     "cost": 2733,
     "routes": 2,
     "unassigned": 0,
-    "duration": 2733
+    "duration": 2733,
+    "delivery": [100, 1]
   },
   "routes": [
     {
       "vehicle": 1,
       "cost": 1144,
       "duration": 1144,
+      "geometry": "encoded_polyline",
       "steps": [
         {
           "type": "start",
@@ -537,17 +614,12 @@ A simplified result looks like:
         },
         {
           "type": "job",
+          "id": 2,
           "job": 2,
           "location": [103.7843, 1.3149],
           "arrival": 269,
-          "duration": 269
-        },
-        {
-          "type": "job",
-          "job": 1,
-          "location": [103.7975, 1.3104],
-          "arrival": 673,
-          "duration": 673
+          "duration": 269,
+          "load": [50]
         },
         {
           "type": "end",
@@ -564,13 +636,15 @@ A simplified result looks like:
 
 Read each route's `steps` in order to determine:
 
-* which vehicle serves each job
-* the order in which jobs are visited
-* when each job is reached
+* which vehicle serves each task
+* the order in which tasks are visited
+* when each task is reached
+
+`pickup`, `delivery`, and `break` steps may appear between the route's `start` and `end` steps. `violations` fields exist for API completeness and are always empty on the hosted API. `geometry` appears only with `options.g`.
 
 Always check `unassigned`.
 
-Do not assume that every job can be assigned to a vehicle.
+Do not assume that every task can be assigned to a vehicle.
 
 If the user provides place names or addresses instead of coordinates, call `geocode` first for every location and use the selected coordinates in the optimization request.
 
